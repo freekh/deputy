@@ -33,8 +33,8 @@ object App {
     val res = args.headOption.map(command => {
       if (command == "with-resolvers")
         DeputyCommands.withResolvers(args(1), List(typesafeResolver))
-      else if (command == "resolve")
-        DeputyCommands.resolve(args(1))
+      else if (command == "prune")
+        DeputyCommands.prune(args(1))
       else {
         System.err.println("Unknown command: " + command)
         -1

@@ -63,7 +63,7 @@ object DeputyCommands {
     0
   }
 
-  def resolve(l: String) = {
+  def prune(l: String) = {
     val outputLine = OutputLine.parse(l)
     val svc = url(outputLine.artifact)
     val response = Http(svc.HEAD)()
