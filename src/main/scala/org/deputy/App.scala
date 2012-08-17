@@ -9,23 +9,26 @@ import org.apache.ivy.core.LogOptions
 import org.deputy.resolvers.UrlResolver
 import org.deputy.formatting.OutputLine
 import dispatch.Http
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 /** The launched conscript entry point */
 class App extends xsbti.AppMain {
   def run(config: xsbti.AppConfiguration) = {
-    Exit(App.run(config.arguments))
+    Exit(Deputy.run(config.arguments))
   }
 }
 
-object App {
+object Deputy {
   /**
    * Shared by the launched version and the runnable version,
    * returns the process status code
    */
   def run(args: Array[String]): Int = {
-    //  echo "org.apache.ivy:ivy:2.2.20" | deputy with-resolvers /file/ivy-settings.xml | deputy prune | deputy explode |  deputy download --format="test/[mavenorg]" /directory  # or grep jar | cut -d '|' -f 3 | xargs curl 
+    //  echo "org.apache.ivy:ivy:2.2.20" | deputy with-resolvers /file/ivy-settings.xml | deputy check --keep-all | deputy explode |  deputy download --format="test/[mavenorg]" /directory  # or grep jar | cut -d '|' -f 3 | xargs curl 
 
     //"org.apache.ivy:ivy:2.2.0"
+    //val logger = LoggerFactory.getLogger("deputy")
 
     //println(ListDependencies.forIvyCoordinates("org.apache.ivy", "ivy", "2.2.0", ivyInstance).toString)
     val typesafeResolver = UrlResolver(List("http://repo.typesafe.com/typesafe/releases/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]"), isM2Compatible = true)
