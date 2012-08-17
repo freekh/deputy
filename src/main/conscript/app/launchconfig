@@ -1,5 +1,5 @@
 [app]
-  version: 0.1.0
+  version: 0.1.1
   org: org.deputy
   name: deputy
   class: org.deputy.App
@@ -9,4 +9,3 @@
   local
   scala-tools-releases
   maven-central
-  typesafe
