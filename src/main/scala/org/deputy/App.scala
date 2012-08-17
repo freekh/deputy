@@ -33,8 +33,10 @@ object Deputy {
     //println(ListDependencies.forIvyCoordinates("org.apache.ivy", "ivy", "2.2.0", ivyInstance).toString)
     val typesafeResolver = UrlResolver(List("http://repo.typesafe.com/typesafe/releases/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]"), isM2Compatible = true)
 
-    if (args.contains("--version")) println("TODO")
-
+    if (args.contains("--version")) {
+      println("TODO")
+      System.exit(0)
+    }
     val res = args.headOption.map(command => {
       if (command == "with-resolvers")
         DeputyCommands.withResolvers(args(1), List(typesafeResolver))
