@@ -7,14 +7,14 @@ import org.deputy.resolvers.Resolver
 import org.deputy.formatting.OutputLine
 import dispatch._
 import org.deputy.formatting.FormattingDefaults
+import org.apache.ivy.core.IvyPatternHelper
+import java.util.HashMap
+import org.apache.ivy.plugins.parser.m2.PomModuleDescriptorParser
+import java.net.URL
+import java.io.PrintStream
+import java.io.OutputStream
 
 object DeputyCommands {
-
-  def settingsFrom(xml: File) = {
-    val settings = new IvySettings()
-    (new XmlSettingsParser(settings)).parse(xml.toURI.toURL)
-    settings
-  }
 
   object Exts {
     private val defaults = List("pom", "ivy", "jar", "war")
@@ -28,24 +28,34 @@ object DeputyCommands {
     val List(sources, javadoc) = defaults
   }
 
-  def withResolvers(l: String, resolvers: List[Resolver]) = { //TODO: line
-    val (moduleOrg: String, moduleName: String, revision: String) = FormattingDefaults.parseIvyCoords(l)
+  object Tokens {
+    val classifier = "classifier"
+    val defaults = Map(
+      classifier -> "")
+  }
+  object DependencyTypes {
+    private val all = List("pom", "ivy")
+    val List(pom, ivy) = all
+  }
+
+  def withResolvers(line: String, resolvers: List[Resolver]): Int = {
+    val (moduleOrg: String, moduleName: String, revision: String) = FormattingDefaults.parseIvyCoords(line)
     import Exts._
 
-    def commonPattern(artifactPattern: String, ext: String) = {
-      val replacedPattern = artifactPattern
-        .replace("[module]", moduleName)
-        .replace("[revision]", revision)
-        .replace("[ext]", ext)
-        .replace("[artifact]", moduleName)
-      val commonPatterns: Set[String] = if (ext == jar) {
-        Set(replacedPattern) ++ Classifiers.current.map(classifier => replacedPattern.replace("[classifier]", classifier))
-      } else {
-        Set(replacedPattern)
-      }
+    def commonPattern(artifactPattern: String, moduleType: String) = {
+      import scala.collection.JavaConverters._
 
-      //TODO: add optional support now we are just removing everything
-      commonPatterns.map(_.replaceAll("(\\(.*?\\))", ""))
+      val artifact = moduleName //TODO: is this right?
+      val commonPatterns: Set[String] = if (moduleType == jar) {
+        Set(artifactPattern) ++ Classifiers.current.map(classifier => {
+          val classifierTokens = Tokens.defaults ++ Map(Tokens.classifier -> classifier)
+          IvyPatternHelper.substituteTokens(artifactPattern, classifierTokens.asJava)
+        })
+      } else {
+        Set(IvyPatternHelper.substituteTokens(artifactPattern, Tokens.defaults.asJava))
+      }
+      commonPatterns.map(p => IvyPatternHelper.substitute(p, moduleOrg, moduleName, revision, artifact, moduleType, moduleType))
+
     }
 
     val artifactsOnlys = resolvers.flatMap(resolver =>
@@ -53,21 +63,69 @@ object DeputyCommands {
         ext <- Exts.current if ext != ivy
         artifactPattern <- resolver.artifactPatterns
       } yield {
-        if (resolver.isM2Compatible)
-          commonPattern(artifactPattern, ext).map(a => a.replace("[organisation]", moduleOrg.replace(".", "/")) -> ext)
-        else
-          commonPattern(artifactPattern, ext).map(a => a.replace("[organisation]", moduleOrg) -> ext)
+        val moduleType = ext //TODO: is this right? ext is perhaps xml, ... while type is ivy, pom? 
+        val explodedPatterns = if (resolver.isM2Compatible) commonPattern(artifactPattern.replace("[organisation]", moduleOrg.replace(".", "/")), moduleType)
+        else commonPattern(artifactPattern, moduleType)
+        explodedPatterns.map(p => p -> moduleType)
       }).flatten
 
-    artifactsOnlys.map { case (artifact, ext) => System.out.println(OutputLine(moduleOrg, moduleName, revision, artifact, ext, "", "", "", "", "", "", "").format) }
+    artifactsOnlys.map { case (artifact, moduleType) => System.out.println(OutputLine(moduleOrg, moduleName, revision, artifact, moduleType, "", "", "", "", "", "", "").format) }
     0
+
   }
 
-  def prune(l: String) = {
-    val outputLine = OutputLine.parse(l)
-    val svc = url(outputLine.artifact)
-    val response = Http(svc.HEAD)()
-    System.out.println(outputLine.copy(statusCode = response.getStatusCode.toString).format)
+  def withResolvers(lines: List[String], resolvers: List[Resolver]): Int = {
+    executeAllLines(lines, { line: String => withResolvers(line, resolvers) })
+  }
+
+  def executeAllLines(lines: List[String], f: String => Int): Int = {
+    lines.foldLeft(0)((res, line) => res + f(line))
+  }
+
+  def check(lines: List[String]): Int = {
+    val promise = Promise.all(lines.map { l =>
+      val outputLine = OutputLine.parse(l)
+      val svc = url(outputLine.artifact)
+      Http(svc.HEAD).map(r => r -> outputLine)
+    })
+    val result = promise.map(responseLines => {
+      responseLines.foldLeft(0) { (result, responseLine) =>
+        responseLine match {
+          case (response, line) =>
+            System.out.println(line.copy(statusCode = response.getStatusCode.toString).format)
+            0
+        }
+      }
+    })
+    result()
+  }
+
+  def disableOutput[A](f: => A): A = {
+    val out = System.out
+    System.setOut(new PrintStream(new OutputStream() {
+      override def write(b: Int) = {}
+    }))
+    try {
+      f
+    } finally {
+      System.setOut(out);
+    }
+  }
+
+  def explode(lines: List[String], settings: IvySettings): Int = {
+    val output = lines.map(OutputLine.parse)
+    output.filter(_.moduleType == DependencyTypes.pom).foreach { output =>
+      val descriptor = disableOutput {
+        val pomParser = PomModuleDescriptorParser.getInstance
+        pomParser.parseDescriptor(settings, new URL(output.artifact), false) //TODO: depends on resovler
+      }
+      System.out.println(output.format)
+      descriptor.getDependencies.foreach { descriptor =>
+        val dep = descriptor.getDependencyRevisionId
+        val newOutputLine = OutputLine(dep.getOrganisation, dep.getName, dep.getRevision, "", "", "", "", output.moduleOrg, output.moduleName, output.revision, output.artifact, "")
+        System.out.println(newOutputLine.format)
+      }
+    }
     0
   }
 

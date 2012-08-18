@@ -11,6 +11,10 @@ import org.deputy.formatting.OutputLine
 import dispatch.Http
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import scala.annotation.tailrec
+import org.apache.ivy.plugins.resolver.URLResolver
 
 /** The launched conscript entry point */
 class App extends xsbti.AppMain {
@@ -27,22 +31,37 @@ object Deputy {
   def run(args: Array[String]): Int = {
     //  echo "org.apache.ivy:ivy:2.2.20" | deputy with-resolvers /file/ivy-settings.xml | deputy check --keep-all | deputy explode |  deputy download --format="test/[mavenorg]" /directory  # or grep jar | cut -d '|' -f 3 | xargs curl 
 
-    //"org.apache.ivy:ivy:2.2.0"
-    //val logger = LoggerFactory.getLogger("deputy")
-
-    //println(ListDependencies.forIvyCoordinates("org.apache.ivy", "ivy", "2.2.0", ivyInstance).toString)
-    val typesafeResolver = UrlResolver(List("http://repo.typesafe.com/typesafe/releases/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]"), isM2Compatible = true)
-
     if (args.contains("--version")) {
-      println("TODO")
+      println("0.1.3") //TOOD: git hook
       System.exit(0)
     }
+
+    val reader = new BufferedReader(new InputStreamReader(System.in));
+
+    @tailrec def commandLineLoop(lines: List[String]): List[String] = {
+      val line = reader.readLine()
+      if (line != null) commandLineLoop(line :: lines)
+      else lines
+    }
+
+    val availableCommands = List("coords-artifacts", "artifacts-check", "artifacts-transitive")
+    val List(resolverCommand, checkCommand, explodeCommand) = availableCommands
+
     val res = args.headOption.map(command => {
-      if (command == "with-resolvers")
-        DeputyCommands.withResolvers(args(1), List(typesafeResolver))
-      else if (command == "prune")
-        DeputyCommands.prune(args(1))
-      else {
+      if (command == resolverCommand) {
+        val typesafeResolver = UrlResolver(List("http://repo.typesafe.com/typesafe/releases/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]"), isM2Compatible = true)
+        DeputyCommands.withResolvers(commandLineLoop(List.empty), List(typesafeResolver))
+      } else if (command == checkCommand) {
+        DeputyCommands.check(commandLineLoop(List.empty))
+      } else if (command == explodeCommand) {
+        val settings = new IvySettings() //TODO: add option
+        val urlResolver = new URLResolver()
+        urlResolver.addArtifactPattern("http://repo.typesafe.com/typesafe/releases/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]")
+        urlResolver.setM2compatible(true)
+
+        //urlResolver.locate(x$1)
+        DeputyCommands.explode(commandLineLoop(List.empty), settings)
+      } else {
         System.err.println("Unknown command: " + command)
         -1
       }
