@@ -7,7 +7,7 @@ import org.apache.ivy.Ivy
 import org.apache.ivy.core.retrieve.RetrieveOptions
 import org.apache.ivy.core.LogOptions
 import org.deputy.resolvers.UrlResolver
-import org.deputy.formatting.OutputLine
+import org.deputy.formatting._
 import dispatch.Http
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory

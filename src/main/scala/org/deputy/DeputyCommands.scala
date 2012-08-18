@@ -4,9 +4,8 @@ import java.io.File
 import org.apache.ivy.core.settings.IvySettings
 import org.apache.ivy.core.settings.XmlSettingsParser
 import org.deputy.resolvers.Resolver
-import org.deputy.formatting.OutputLine
+import org.deputy.formatting._
 import dispatch._
-import org.deputy.formatting.FormattingDefaults
 import org.apache.ivy.core.IvyPatternHelper
 import java.util.HashMap
 import org.apache.ivy.plugins.parser.m2.PomModuleDescriptorParser
@@ -39,7 +38,7 @@ object DeputyCommands {
   }
 
   def withResolvers(line: String, resolvers: List[Resolver]): Int = {
-    val (moduleOrg: String, moduleName: String, revision: String) = FormattingDefaults.parseIvyCoords(line)
+    val Coords(moduleOrg: String, moduleName: String, revision: String) = Coords.parse(line)
     import Exts._
 
     def commonPattern(artifactPattern: String, moduleType: String) = {
@@ -69,7 +68,7 @@ object DeputyCommands {
         explodedPatterns.map(p => p -> moduleType)
       }).flatten
 
-    artifactsOnlys.map { case (artifact, moduleType) => System.out.println(OutputLine(moduleOrg, moduleName, revision, artifact, moduleType, "", "", "", "", "", "", "").format) }
+    artifactsOnlys.map { case (artifact, moduleType) => System.out.println(Line(Some(Coords(moduleOrg, moduleName, revision)), Some(artifact), Some(moduleType), None, None).format) }
     0
 
   }
@@ -83,16 +82,17 @@ object DeputyCommands {
   }
 
   def check(lines: List[String]): Int = {
-    val promise = Promise.all(lines.map { l =>
-      val outputLine = OutputLine.parse(l)
-      val svc = url(outputLine.artifact)
-      Http(svc.HEAD).map(r => r -> outputLine)
+    val parsedLinesWithArtifacts = lines.map(Line.parse).foldLeft(List[(Line, String)]())((a, parsedLine) => parsedLine.artifact.map(a => parsedLine -> a).toList ++ a)
+    val promise = Promise.all(parsedLinesWithArtifacts.map {
+      case (parsedLine, artifact) =>
+        val svc = url(artifact)
+        Http(svc.HEAD).map(r => r -> parsedLine)
     })
     val result = promise.map(responseLines => {
       responseLines.foldLeft(0) { (result, responseLine) =>
         responseLine match {
           case (response, line) =>
-            System.out.println(line.copy(statusCode = response.getStatusCode.toString).format)
+            System.out.println(line.copy(statusCode = Some(response.getStatusCode)).format)
             0
         }
       }
@@ -113,17 +113,20 @@ object DeputyCommands {
   }
 
   def explode(lines: List[String], settings: IvySettings): Int = {
-    val output = lines.map(OutputLine.parse)
-    output.filter(_.moduleType == DependencyTypes.pom).foreach { output =>
-      val descriptor = disableOutput {
-        val pomParser = PomModuleDescriptorParser.getInstance
-        pomParser.parseDescriptor(settings, new URL(output.artifact), false) //TODO: depends on resovler
-      }
-      System.out.println(output.format)
-      descriptor.getDependencies.foreach { descriptor =>
-        val dep = descriptor.getDependencyRevisionId
-        val newOutputLine = OutputLine(dep.getOrganisation, dep.getName, dep.getRevision, "", "", "", "", output.moduleOrg, output.moduleName, output.revision, output.artifact, "")
-        System.out.println(newOutputLine.format)
+    val parsedLines = lines.map(Line.parse)
+    val poms = parsedLines.filter(l => l.moduleType.isDefined && l.moduleType.get == DependencyTypes.pom)
+    poms.foreach { parsedLine =>
+      parsedLine.artifact.foreach { artifact =>
+        val descriptor = disableOutput {
+          val pomParser = PomModuleDescriptorParser.getInstance
+          pomParser.parseDescriptor(settings, new URL(artifact), false) //TODO: depends on resovler
+        }
+        System.out.println(parsedLine.format)
+        descriptor.getDependencies.foreach { descriptor =>
+          val dep = descriptor.getDependencyRevisionId
+          val newOutputLine = Line(Some(Coords(dep.getOrganisation, dep.getName, dep.getRevision)), Some(artifact), None, None, resolvedFromArtifact = parsedLine.artifact)
+          System.out.println(newOutputLine.format)
+        }
       }
     }
     0
