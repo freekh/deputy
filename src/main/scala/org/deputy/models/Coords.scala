@@ -1,4 +1,4 @@
-package org.deputy.formatting
+package org.deputy.models
 
 import org.deputy.expectedExceptions._
 

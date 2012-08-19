@@ -10,5 +10,6 @@
         <appender-ref ref="STDOUT"/>
     </root>
 
+    <logger name="ch.qos" level="${ch.qos-level:-OFF}"/>
     <logger name="com.ning.http.client" level="${com.ning-level:-OFF}"/>
 </configuration>

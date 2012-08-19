@@ -4,7 +4,7 @@ import java.io.File
 import org.apache.ivy.core.settings.IvySettings
 import org.apache.ivy.core.settings.XmlSettingsParser
 import org.deputy.resolvers.Resolver
-import org.deputy.formatting._
+import org.deputy.models._
 import dispatch._
 import org.apache.ivy.core.IvyPatternHelper
 import java.util.HashMap
@@ -12,6 +12,8 @@ import org.apache.ivy.plugins.parser.m2.PomModuleDescriptorParser
 import java.net.URL
 import java.io.PrintStream
 import java.io.OutputStream
+import scala.xml.Elem
+import org.deputy.descriptors.Pom
 
 object DeputyCommands {
 
@@ -100,35 +102,24 @@ object DeputyCommands {
     result()
   }
 
-  def disableOutput[A](f: => A): A = {
-    val out = System.out
-    System.setOut(new PrintStream(new OutputStream() {
-      override def write(b: Int) = {}
-    }))
-    try {
-      f
-    } finally {
-      System.setOut(out);
-    }
-  }
-
   def explode(lines: List[String], settings: IvySettings): Int = {
     val parsedLines = lines.map(Line.parse)
     val poms = parsedLines.filter(l => l.moduleType.isDefined && l.moduleType.get == DependencyTypes.pom)
-    poms.foreach { parsedLine =>
-      parsedLine.artifact.foreach { artifact =>
-        val descriptor = disableOutput {
-          val pomParser = PomModuleDescriptorParser.getInstance
-          pomParser.parseDescriptor(settings, new URL(artifact), false) //TODO: depends on resovler
-        }
-        System.out.println(parsedLine.format)
-        descriptor.getDependencies.foreach { descriptor =>
-          val dep = descriptor.getDependencyRevisionId
-          val newOutputLine = Line(Some(Coords(dep.getOrganisation, dep.getName, dep.getRevision)), Some(artifact), None, None, resolvedFromArtifact = parsedLine.artifact)
-          System.out.println(newOutputLine.format)
-        }
+    val pomProms = poms.flatMap { pomLine => //pomProms: hehe :)
+      pomLine.artifact.map { pomUrl =>
+        Http(url(pomUrl).OK(as.xml.Elem)).map(pomXml => pomLine -> Pom.parse(pomXml, pomUrl))
       }
     }
+    Promise.all(pomProms).foreach { urlAndPoms =>
+      urlAndPoms.foreach {
+        case (pomLine, pom) =>
+          System.out.println(pomLine.format)
+          pom.dependencies.foreach { dep =>
+            System.out.println(Line(dep.toCoords, None, None, None, pomLine.artifact).format)
+          }
+      }
+    }
+
     0
   }
 

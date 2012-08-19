@@ -7,7 +7,7 @@ import org.apache.ivy.Ivy
 import org.apache.ivy.core.retrieve.RetrieveOptions
 import org.apache.ivy.core.LogOptions
 import org.deputy.resolvers.UrlResolver
-import org.deputy.formatting._
+import org.deputy.models._
 import dispatch.Http
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -15,6 +15,7 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import scala.annotation.tailrec
 import org.apache.ivy.plugins.resolver.URLResolver
+import ch.qos.logback.classic.Level
 
 /** The launched conscript entry point */
 class App extends xsbti.AppMain {
@@ -24,6 +25,7 @@ class App extends xsbti.AppMain {
 }
 
 object Deputy {
+
   /**
    * Shared by the launched version and the runnable version,
    * returns the process status code
@@ -58,6 +60,7 @@ object Deputy {
         val urlResolver = new URLResolver()
         urlResolver.addArtifactPattern("http://repo.typesafe.com/typesafe/releases/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]")
         urlResolver.setM2compatible(true)
+        settings.addResolver(urlResolver)
 
         //urlResolver.locate(x$1)
         DeputyCommands.explode(commandLineLoop(List.empty), settings)
