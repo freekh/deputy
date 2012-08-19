@@ -16,6 +16,9 @@ import java.io.InputStreamReader
 import scala.annotation.tailrec
 import org.apache.ivy.plugins.resolver.URLResolver
 import ch.qos.logback.classic.Level
+import org.apache.ivy.core.IvyContext
+import org.apache.ivy.core.module.id.ModuleRevisionId
+import org.apache.ivy.core.module.id.ModuleId
 
 /** The launched conscript entry point */
 class App extends xsbti.AppMain {
@@ -46,24 +49,24 @@ object Deputy {
       else lines
     }
 
-    val availableCommands = List("coords-artifacts", "artifacts-check", "artifacts-transitive")
+    val availableCommands = List("with-resolvers", "check", "transitive")
     val List(resolverCommand, checkCommand, explodeCommand) = availableCommands
 
+    //TODO: fix resolvers to load from file
+    val bogusResolvers = List(UrlResolver(List("http://repo.typesafe.com/typesafe/releases/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]"), isM2Compatible = true))
+    val ivy = DeputyCommands.disableOutput { //TODO: move this one
+      val ivy = IvyContext.getContext.getIvy
+      ivy.configure(new File("ivy-settings.xml")) //TODO: add option
+      //ivy.getSettings.getResolvers.map(_.asInstanceOf[URLResolver])....
+      ivy
+    }
     val res = args.headOption.map(command => {
       if (command == resolverCommand) {
-        val typesafeResolver = UrlResolver(List("http://repo.typesafe.com/typesafe/releases/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]"), isM2Compatible = true)
-        DeputyCommands.withResolvers(commandLineLoop(List.empty), List(typesafeResolver))
+        DeputyCommands.withResolvers(commandLineLoop(List.empty), bogusResolvers)
       } else if (command == checkCommand) {
         DeputyCommands.check(commandLineLoop(List.empty))
       } else if (command == explodeCommand) {
-        val settings = new IvySettings() //TODO: add option
-        val urlResolver = new URLResolver()
-        urlResolver.addArtifactPattern("http://repo.typesafe.com/typesafe/releases/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]")
-        urlResolver.setM2compatible(true)
-        settings.addResolver(urlResolver)
-
-        //urlResolver.locate(x$1)
-        DeputyCommands.explode(commandLineLoop(List.empty), settings)
+        DeputyCommands.explodeLines(commandLineLoop(List.empty), ivy.getSettings, bogusResolvers, -1)
       } else {
         System.err.println("Unknown command: " + command)
         -1

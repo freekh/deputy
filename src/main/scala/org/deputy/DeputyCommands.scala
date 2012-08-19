@@ -13,7 +13,7 @@ import java.net.URL
 import java.io.PrintStream
 import java.io.OutputStream
 import scala.xml.Elem
-import org.deputy.descriptors.Pom
+import scala.annotation.tailrec
 
 object DeputyCommands {
 
@@ -39,8 +39,7 @@ object DeputyCommands {
     val List(pom, ivy) = all
   }
 
-  def withResolvers(line: String, resolvers: List[Resolver]): Int = {
-    val Coords(moduleOrg: String, moduleName: String, revision: String) = Coords.parse(line)
+  def withResolvers(moduleOrg: String, moduleName: String, revision: String, resolvers: List[Resolver]): Seq[Line] = {
     import Exts._
 
     def commonPattern(artifactPattern: String, moduleType: String) = {
@@ -70,9 +69,13 @@ object DeputyCommands {
         explodedPatterns.map(p => p -> moduleType)
       }).flatten
 
-    artifactsOnlys.map { case (artifact, moduleType) => System.out.println(Line(Some(Coords(moduleOrg, moduleName, revision)), Some(artifact), Some(moduleType), None, None).format) }
-    0
+    artifactsOnlys.map { case (artifact, moduleType) => Line(Some(Coords(moduleOrg, moduleName, revision)), Some(artifact), Some(moduleType), None, None) }
+  }
 
+  def withResolvers(line: String, resolvers: List[Resolver]): Int = {
+    val Coords(moduleOrg: String, moduleName: String, revision: String) = Coords.parse(line)
+    withResolvers(moduleOrg, moduleName, revision, resolvers).foreach(l => System.out.println(l.format))
+    0
   }
 
   def withResolvers(lines: List[String], resolvers: List[Resolver]): Int = {
@@ -102,24 +105,50 @@ object DeputyCommands {
     result()
   }
 
-  def explode(lines: List[String], settings: IvySettings): Int = {
-    val parsedLines = lines.map(Line.parse)
-    val poms = parsedLines.filter(l => l.moduleType.isDefined && l.moduleType.get == DependencyTypes.pom)
-    val pomProms = poms.flatMap { pomLine => //pomProms: hehe :)
-      pomLine.artifact.map { pomUrl =>
-        Http(url(pomUrl).OK(as.xml.Elem)).map(pomXml => pomLine -> Pom.parse(pomXml, pomUrl))
-      }
+  def disableOutput[A](f: => A): A = {
+    val out = System.out
+    System.setOut(new PrintStream(new OutputStream() {
+      override def write(b: Int) = {}
+    }))
+    try {
+      f
+    } finally {
+      System.setOut(out);
     }
-    Promise.all(pomProms).foreach { urlAndPoms =>
-      urlAndPoms.foreach {
-        case (pomLine, pom) =>
-          System.out.println(pomLine.format)
-          pom.dependencies.foreach { dep =>
-            System.out.println(Line(dep.toCoords, None, None, None, pomLine.artifact).format)
-          }
-      }
-    }
+  }
 
+  def explode(parsedLines: Seq[Line], settings: IvySettings, resolvers: List[Resolver], currentLevel: Int, levels: Int = -1): Set[Line] = {
+    var currentLevel = 0 //TODO: yeah, this shows up as red in my editor too, it should be tailrec instead of the while, but I am too tired right now
+    var lines = parsedLines.toSet
+    var lastLines = Set[Line]()
+    while ((levels < 0 || currentLevel < levels) && lines != lastLines) { //TODO: it should not be Set[Line] but Seq
+      currentLevel += 1
+      lines = lastLines ++ (for {
+        parsedLine <- lines if parsedLine.moduleType.isDefined && parsedLine.moduleType.get == DependencyTypes.pom
+        artifact <- parsedLine.artifact.toList
+        descriptor = disableOutput {
+          val pomParser = PomModuleDescriptorParser.getInstance
+          pomParser.parseDescriptor(settings, new URL(artifact), false) //TODO: depends on resolver && make this async
+        }
+        descriptor <- descriptor.getDependencies.toList
+      } yield {
+        //TODO: fix this loop so that it is a Seq again and then reenableSystem.out.println(parsedLine.format)
+        val dep = descriptor.getDependencyRevisionId
+        val newOutputLine = Line(Some(Coords(dep.getOrganisation, dep.getName, dep.getRevision)), Some(artifact), None, None, resolvedFromArtifact = parsedLine.artifact)
+        System.out.println(newOutputLine.format)
+        explode(withResolvers(dep.getOrganisation, dep.getName, dep.getRevision, resolvers), settings, resolvers, currentLevel, levels)
+      }).flatten
+      lastLines = lines
+    }
+    lines
+  }
+
+  def explodeLines(lines: List[String], settings: IvySettings, resolvers: List[Resolver], levels: Int = -1): Int = {
+    val parsedLines = lines.map(Line.parse)
+    parsedLines.foreach { l => println(l.format) }
+    explode(parsedLines, settings, resolvers, 0, levels).foreach { l =>
+      println(l.format)
+    }
     0
   }
 

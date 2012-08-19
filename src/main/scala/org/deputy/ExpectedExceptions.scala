@@ -1,11 +1,11 @@
 package org.deputy
 
 object expectedExceptions {
-  case class IvyCoordsParseException(actualIvyCoords: String) extends Exception("Expected valid module coordinates in this format: <org>:<name>:<version> but found: " + actualIvyCoords)
+  class ExpectedException(val msg: String) extends Exception(msg)
 
-  case class LineParseException(line: String, expr: String) extends Exception("Line: " + line + " cannot be parsed by reg exp: " + expr)
+  case class IvyCoordsParseException(actualIvyCoords: String, expr: String) extends ExpectedException("Expected valid module coordinates in this format: " + expr + " but found: '" + actualIvyCoords + "'")
 
-  case class IntParseException(line: String, wrongInt: String) extends Exception("While parsing: " + line + " expected this: " + wrongInt + " to be a parsable integer which it is not")
+  case class LineParseException(line: String, expr: String) extends ExpectedException("Line: " + line + " cannot be parsed by reg exp: " + expr)
 
-  case class PomParseException(file: String, error: String) extends Exception("Got the following error: " + error + " while parsing pom file: " + file)
+  case class IntParseException(line: String, wrongInt: String) extends ExpectedException("While parsing: " + line + " expected this: " + wrongInt + " to be a parsable integer which it is not")
 }

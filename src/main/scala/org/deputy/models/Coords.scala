@@ -4,11 +4,11 @@ import org.deputy.expectedExceptions._
 
 object Coords {
   val ivyCoordSep = ":"
-  val IvyCoordsRegExp = ("(.*?)" + ivyCoordSep + "(.*?)" + ivyCoordSep + "(.*?)").r
+  val IvyCoordsRegExp = ("^(.*?)" + ivyCoordSep + "(.*?)" + ivyCoordSep + "(.*?)").r
 
-  def parse(ivyCoords: String) = ivyCoords match {
+  def parse(ivyCoords: String) = ivyCoords.trim match {
     case IvyCoordsRegExp(moduleOrg, moduleName, version) => Coords(moduleOrg, moduleName, version)
-    case _ => throw IvyCoordsParseException(ivyCoords)
+    case _ => throw IvyCoordsParseException(ivyCoords.trim, IvyCoordsRegExp.toString)
   }
 }
 
