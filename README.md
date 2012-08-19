@@ -3,8 +3,8 @@ WORK IN PROGRESS!!
 USAGE:
 `echo commons-cli:commons-cli:1.0 | ./deputy with-resolvers |  ./deputy transitive`
 `
-commons-cli:commons-cli:1.0|http://repo.typesafe.com/typesafe/releases/commons-cli/commons-cli/1.0/commons-cli-1.0.war|war|||
-commons-cli:commons-cli:1.0|http://repo.typesafe.com/typesafe/releases/commons-cli/commons-cli/1.0/commons-cli-1.0-javadoc.jar|jar|||
+commons-cli:commons-cli:1.0|http://repo.typesafe.com/typesafe/releases/commons-cli/commons-cli/1.0/commons-cli-1.0.war|war|||\n
+commons-cli:commons-cli:1.0|http://repo.typesafe.com/typesafe/releases/commons-cli/commons-cli/1.0/commons-cli-1.0-javadoc.jar|jar|||\n
 commons-cli:commons-cli:1.0|http://repo.typesafe.com/typesafe/releases/commons-cli/commons-cli/1.0/commons-cli-1.0-sources.jar|jar|||
 commons-cli:commons-cli:1.0|http://repo.typesafe.com/typesafe/releases/commons-cli/commons-cli/1.0/commons-cli-1.0.jar|jar|||
 commons-cli:commons-cli:1.0|http://repo.typesafe.com/typesafe/releases/commons-cli/commons-cli/1.0/commons-cli-1.0.pom|pom|||
