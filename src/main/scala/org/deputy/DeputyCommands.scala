@@ -56,7 +56,7 @@ object DeputyCommands {
     }
   }
 
-  def withResolvers(moduleOrg: String, moduleName: String, revision: String, ivySettings: IvySettings): Promise[Set[Line]] = {
+  def withResolvers(moduleOrg: String, moduleName: String, revision: String, ivySettings: IvySettings): Promise[Set[Artifact]] = {
     import scala.collection.JavaConversions._
 
     val vrm = new VersionRangeMatcher("range", ivySettings.getDefaultLatestStrategy)
@@ -90,7 +90,7 @@ object DeputyCommands {
         } yield {
           val url = IvyPatternHelper.substituteToken(partiallyResolvedPattern,
             IvyPatternHelper.REVISION_KEY, currentRev)
-          Line(Some(Coords(moduleOrg, moduleName, currentRev)), Some(url), Some(moduleType), None, None)
+          Artifact(Some(Coords(moduleOrg, moduleName, currentRev)), Some(url), Some(moduleType), None, None)
         }
       }
     }).map(_.flatten.toSet)
@@ -113,7 +113,7 @@ object DeputyCommands {
   }
 
   def check(lines: List[String]): Int = {
-    val parsedLinesWithArtifacts = lines.map(Line.parse).foldLeft(List[(Line, String)]())((a, parsedLine) => parsedLine.artifact.map(a => parsedLine -> a).toList ++ a)
+    val parsedLinesWithArtifacts = lines.map(Artifact.parse).foldLeft(List[(Artifact, String)]())((a, parsedLine) => parsedLine.artifact.map(a => parsedLine -> a).toList ++ a)
     val promise = Promise.all(parsedLinesWithArtifacts.map {
       case (parsedLine, artifact) =>
         val svc = url(artifact)
@@ -143,10 +143,11 @@ object DeputyCommands {
     }
   }
 
-  def explode(parsedLines: Set[Line], settings: IvySettings, currentLevel: Int, levels: Int = -1): Promise[Set[Line]] = {
-    def getDependencies(line: Line): Promise[Set[Line]] = {
+  def explode(parsedLines: Set[Artifact], settings: IvySettings, currentLevel: Int, levels: Int = -1): Promise[Set[Artifact]] = {
+    def getDependencies(line: Artifact): Promise[Set[Artifact]] = {
       if (line.moduleType == Some(DependencyTypes.pom)) {
         //println("checking dep for pom in: " + line)
+        //THIS CODE IS IN WRITE-ONLY MODE, MUST FIX
         line.artifact.flatMap { pomArtifact =>
           val promPomOpt = disableOutput {
             val pomParser = PomModuleDescriptorParser.getInstance
@@ -170,7 +171,7 @@ object DeputyCommands {
             promPom.flatMap { pom =>
               pom.getDependencies.toList.map { depDescriptor =>
                 val dep = depDescriptor.getDependencyRevisionId
-                println(Line(Some(Coords(dep.getOrganisation, dep.getName, dep.getRevision)), None, Some(DependencyTypes.pom), None, Some(pomArtifact)).format)
+                println(Artifact(Some(Coords(dep.getOrganisation, dep.getName, dep.getRevision)), None, Some(DependencyTypes.pom), None, Some(pomArtifact)).format)
                 val ls = withResolvers(dep.getOrganisation, dep.getName, dep.getRevision, settings).map { l =>
                   l.map(_.copy(resolvedFromArtifact = Some(pomArtifact)))
                 }
@@ -179,10 +180,10 @@ object DeputyCommands {
             }.map(_.flatten.toSet)
           }
         }.getOrElse {
-          Promise(Set[Line]())
+          Promise(Set[Artifact]())
         }
       } else {
-        Promise(Set[Line]())
+        Promise(Set[Artifact]())
       }
 
     }
@@ -203,7 +204,7 @@ object DeputyCommands {
   }
 
   def explodeLines(lines: List[String], settings: IvySettings, levels: Int = -1): Int = {
-    val parsedLines = lines.map(Line.parse)
+    val parsedLines = lines.map(Artifact.parse)
     parsedLines.foreach { l => println(l.format) }
     explode(parsedLines.toSet, settings, 0, levels).foreach { p =>
       p.foreach { l =>

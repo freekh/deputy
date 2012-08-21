@@ -2,11 +2,11 @@ package org.deputy.models
 
 import org.deputy.expectedExceptions._
 
-object Line {
+object Artifact {
   val sep = "|"
   val escapedSep = "\\|"
 
-  def parse(s: String): Line = {
+  def parse(s: String): Artifact = {
     val FormatExpr = ("^(.*?)" + escapedSep + "(.*?)" + escapedSep + "(.*?)" + escapedSep + "(\\d*?)" + escapedSep + "(.*?)" + escapedSep + "$").r
     s match {
       case FormatExpr(coordsStr, artifactStr, moduleTypeStr, statusCodeStr, resolvedFromArtifactStr) => {
@@ -24,15 +24,15 @@ object Line {
         val artifact = emptyStringOption(artifactStr)
         val moduleType = emptyStringOption(moduleTypeStr)
 
-        Line(coords, artifact, moduleType, statusCode, resolvedFromArtifact)
+        Artifact(coords, artifact, moduleType, statusCode, resolvedFromArtifact)
       }
       case _ => throw LineParseException(s, FormatExpr.toString)
     }
   }
 }
 
-case class Line(coords: Option[Coords], artifact: Option[String], moduleType: Option[String], statusCode: Option[Int], resolvedFromArtifact: Option[String]) {
-  import Line._
+case class Artifact(coords: Option[Coords], artifact: Option[String], moduleType: Option[String], statusCode: Option[Int], resolvedFromArtifact: Option[String]) {
+  import Artifact._
   def format = {
     val coordsStr = coords.map(_.format).getOrElse { "" }
     val artifactStr = artifact.getOrElse { "" }
