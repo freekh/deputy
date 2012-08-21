@@ -3,7 +3,6 @@ package org.deputy
 import java.io.File
 import org.apache.ivy.core.settings.IvySettings
 import org.apache.ivy.core.settings.XmlSettingsParser
-import org.deputy.resolvers.Resolver
 import org.deputy.models._
 import dispatch._
 import org.apache.ivy.core.IvyPatternHelper
@@ -14,6 +13,14 @@ import java.io.PrintStream
 import java.io.OutputStream
 import scala.xml.Elem
 import scala.annotation.tailrec
+import org.apache.ivy.plugins.resolver.RepositoryResolver
+import org.apache.ivy.plugins.resolver.ChainResolver
+import org.apache.ivy.plugins.resolver.util.ResolverHelper
+import org.apache.ivy.core.module.id.ModuleRevisionId
+import org.apache.ivy.core.module.descriptor.DefaultArtifact
+import java.util.Date
+import org.apache.ivy.plugins.version.VersionRangeMatcher
+import java.io.IOException
 
 object DeputyCommands {
 
@@ -39,47 +46,66 @@ object DeputyCommands {
     val List(pom, ivy) = all
   }
 
-  def withResolvers(moduleOrg: String, moduleName: String, revision: String, resolvers: List[Resolver]): Seq[Line] = {
-    import Exts._
+  def getRepositoryResolvers(resolvers: List[_]): List[RepositoryResolver] = {
+    import scala.collection.JavaConversions._
+    resolvers flatMap { //TODO: @tailrec
 
-    def commonPattern(artifactPattern: String, moduleType: String) = {
-      import scala.collection.JavaConverters._
-
-      val artifact = moduleName //TODO: is this right?
-      val commonPatterns: Set[String] = if (moduleType == jar) {
-        Set(artifactPattern) ++ Classifiers.current.map(classifier => {
-          val classifierTokens = Tokens.defaults ++ Map(Tokens.classifier -> classifier)
-          IvyPatternHelper.substituteTokens(artifactPattern, classifierTokens.asJava)
-        })
-      } else {
-        Set(IvyPatternHelper.substituteTokens(artifactPattern, Tokens.defaults.asJava))
-      }
-      commonPatterns.map(p => IvyPatternHelper.substitute(p, moduleOrg, moduleName, revision, artifact, moduleType, moduleType))
-
+      case r: RepositoryResolver => List(r)
+      case r: ChainResolver => getRepositoryResolvers(r.getResolvers.toList)
+      //TODO: error msg handling case _ => throw UnsupportedResolver(ivy)  
     }
-
-    val artifactsOnlys = resolvers.flatMap(resolver =>
-      for {
-        ext <- Exts.current if ext != ivy
-        artifactPattern <- resolver.artifactPatterns
-      } yield {
-        val moduleType = ext //TODO: is this right? ext is perhaps xml, ... while type is ivy, pom? 
-        val explodedPatterns = if (resolver.isM2Compatible) commonPattern(artifactPattern.replace("[organisation]", moduleOrg.replace(".", "/")), moduleType)
-        else commonPattern(artifactPattern, moduleType)
-        explodedPatterns.map(p => p -> moduleType)
-      }).flatten
-
-    artifactsOnlys.map { case (artifact, moduleType) => Line(Some(Coords(moduleOrg, moduleName, revision)), Some(artifact), Some(moduleType), None, None) }
   }
 
-  def withResolvers(line: String, resolvers: List[Resolver]): Int = {
+  def withResolvers(moduleOrg: String, moduleName: String, revision: String, ivySettings: IvySettings): Promise[Set[Line]] = {
+    import scala.collection.JavaConversions._
+
+    val vrm = new VersionRangeMatcher("range", ivySettings.getDefaultLatestStrategy)
+    def acceptRevision(a: String, b: String) = {
+      vrm.accept(ModuleRevisionId.newInstance(moduleOrg, moduleName, a), ModuleRevisionId.newInstance(moduleOrg, moduleName, b))
+    }
+
+    def isDynamicVersion(a: String) = {
+      vrm.isDynamic(ModuleRevisionId.newInstance(moduleOrg, moduleName, a))
+    }
+
+    val module = ModuleRevisionId.newInstance(moduleOrg, moduleName, revision)
+    val pubDate = new Date() //???
+    val pomsAndIvys = Promise.all(for {
+      resolver <- getRepositoryResolvers(ivySettings.getResolvers.toList)
+      pattern <- resolver.getIvyPatterns.map(_.toString)
+      isIvy <- List(true, false)
+    } yield {
+      val artifact = if (isIvy) DefaultArtifact.newIvyArtifact(module, pubDate) else DefaultArtifact.newPomArtifact(module, pubDate)
+      val partiallyResolvedPattern = IvyPatternHelper.substitute(pattern, ModuleRevisionId
+        .newInstance(module, IvyPatternHelper.getTokenString(IvyPatternHelper.REVISION_KEY)),
+        artifact)
+      val moduleType = if (isIvy) DependencyTypes.ivy else DependencyTypes.pom
+      val promiseOfRevs = if (isDynamicVersion(revision)) Promise(ResolverHelper.listTokenValues(resolver.getRepository, partiallyResolvedPattern,
+        IvyPatternHelper.REVISION_KEY))
+      else Promise(Array(revision))
+      promiseOfRevs.map { revs =>
+        for {
+          revs <- Option(revs).toList
+          currentRev <- revs.toList if !isDynamicVersion(revision) || acceptRevision(revision, currentRev)
+        } yield {
+          val url = IvyPatternHelper.substituteToken(partiallyResolvedPattern,
+            IvyPatternHelper.REVISION_KEY, currentRev)
+          Line(Some(Coords(moduleOrg, moduleName, currentRev)), Some(url), Some(moduleType), None, None)
+        }
+      }
+    }).map(_.flatten.toSet)
+
+    pomsAndIvys
+  }
+
+  def withResolvers(line: String, ivySettings: IvySettings): Int = {
     val Coords(moduleOrg: String, moduleName: String, revision: String) = Coords.parse(line)
-    withResolvers(moduleOrg, moduleName, revision, resolvers).foreach(l => System.out.println(l.format))
+    withResolvers(moduleOrg, moduleName, revision, ivySettings)().foreach(l => System.out.println(l.format))
     0
   }
 
-  def withResolvers(lines: List[String], resolvers: List[Resolver]): Int = {
-    executeAllLines(lines, { line: String => withResolvers(line, resolvers) })
+  def withResolvers(lines: List[String], ivySettings: IvySettings): Int = {
+    executeAllLines(lines, { line: String => withResolvers(line, ivySettings) })
   }
 
   def executeAllLines(lines: List[String], f: String => Int): Int = {
@@ -117,37 +143,72 @@ object DeputyCommands {
     }
   }
 
-  def explode(parsedLines: Seq[Line], settings: IvySettings, resolvers: List[Resolver], currentLevel: Int, levels: Int = -1): Set[Line] = {
-    var currentLevel = 0 //TODO: yeah, this shows up as red in my editor too, it should be tailrec instead of the while, but I am too tired right now
-    var lines = parsedLines.toSet
-    var lastLines = Set[Line]()
-    while ((levels < 0 || currentLevel < levels) && lines != lastLines) { //TODO: it should not be Set[Line] but Seq
-      currentLevel += 1
-      lines = lastLines ++ (for {
-        parsedLine <- lines if parsedLine.moduleType.isDefined && parsedLine.moduleType.get == DependencyTypes.pom
-        artifact <- parsedLine.artifact.toList
-        descriptor = disableOutput {
-          val pomParser = PomModuleDescriptorParser.getInstance
-          pomParser.parseDescriptor(settings, new URL(artifact), false) //TODO: depends on resolver && make this async
+  def explode(parsedLines: Set[Line], settings: IvySettings, currentLevel: Int, levels: Int = -1): Promise[Set[Line]] = {
+    def getDependencies(line: Line): Promise[Set[Line]] = {
+      if (line.moduleType == Some(DependencyTypes.pom)) {
+        //println("checking dep for pom in: " + line)
+        line.artifact.flatMap { pomArtifact =>
+          val promPomOpt = disableOutput {
+            val pomParser = PomModuleDescriptorParser.getInstance
+            val artifactFile = new File(pomArtifact)
+
+            if (pomArtifact.startsWith("http")) {
+              try {
+                Some(Promise(pomParser.parseDescriptor(settings, new URL(pomArtifact), false)))
+              } catch {
+                case e: IOException =>
+                  None
+              }
+            } else if (artifactFile.isFile) {
+              Some(Promise(pomParser.parseDescriptor(settings, artifactFile.toURI.toURL, false)))
+            } else {
+              None
+            }
+          }
+
+          promPomOpt.map { promPom =>
+            promPom.flatMap { pom =>
+              pom.getDependencies.toList.map { depDescriptor =>
+                val dep = depDescriptor.getDependencyRevisionId
+                println(Line(Some(Coords(dep.getOrganisation, dep.getName, dep.getRevision)), None, Some(DependencyTypes.pom), None, Some(pomArtifact)).format)
+                val ls = withResolvers(dep.getOrganisation, dep.getName, dep.getRevision, settings).map { l =>
+                  l.map(_.copy(resolvedFromArtifact = Some(pomArtifact)))
+                }
+                ls
+              }
+            }.map(_.flatten.toSet)
+          }
+        }.getOrElse {
+          Promise(Set[Line]())
         }
-        descriptor <- descriptor.getDependencies.toList
-      } yield {
-        //TODO: fix this loop so that it is a Seq again and then reenableSystem.out.println(parsedLine.format)
-        val dep = descriptor.getDependencyRevisionId
-        val newOutputLine = Line(Some(Coords(dep.getOrganisation, dep.getName, dep.getRevision)), Some(artifact), None, None, resolvedFromArtifact = parsedLine.artifact)
-        System.out.println(newOutputLine.format)
-        explode(withResolvers(dep.getOrganisation, dep.getName, dep.getRevision, resolvers), settings, resolvers, currentLevel, levels)
-      }).flatten
-      lastLines = lines
+      } else {
+        Promise(Set[Line]())
+      }
+
     }
-    lines
+    val depsPromise = Promise.all(
+      parsedLines.map { line =>
+        getDependencies(line)
+      }).map(_.flatten.toSet).flatMap { lines =>
+        val newLines = lines.diff(parsedLines)
+        if (newLines.nonEmpty)
+          explode(newLines, settings, currentLevel + 1, levels).map { //TODO:make explode @tailrec
+            newLines
+            lines ++
+          }
+        else
+          Promise(lines)
+      }
+    depsPromise
   }
 
-  def explodeLines(lines: List[String], settings: IvySettings, resolvers: List[Resolver], levels: Int = -1): Int = {
+  def explodeLines(lines: List[String], settings: IvySettings, levels: Int = -1): Int = {
     val parsedLines = lines.map(Line.parse)
     parsedLines.foreach { l => println(l.format) }
-    explode(parsedLines, settings, resolvers, 0, levels).foreach { l =>
-      println(l.format)
+    explode(parsedLines.toSet, settings, 0, levels).foreach { p =>
+      p.foreach { l =>
+        println(l.format)
+      }
     }
     0
   }

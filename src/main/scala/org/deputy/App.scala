@@ -6,7 +6,6 @@ import org.apache.ivy.plugins.resolver.DependencyResolver
 import org.apache.ivy.Ivy
 import org.apache.ivy.core.retrieve.RetrieveOptions
 import org.apache.ivy.core.LogOptions
-import org.deputy.resolvers.UrlResolver
 import org.deputy.models._
 import dispatch.Http
 import org.slf4j.Logger
@@ -19,6 +18,16 @@ import ch.qos.logback.classic.Level
 import org.apache.ivy.core.IvyContext
 import org.apache.ivy.core.module.id.ModuleRevisionId
 import org.apache.ivy.core.module.id.ModuleId
+import org.apache.ivy.plugins.resolver.FileSystemResolver
+import org.apache.ivy.plugins.resolver.AbstractPatternsBasedResolver
+import org.apache.ivy.plugins.resolver.AbstractResolver
+import org.apache.ivy.plugins.resolver.ChainResolver
+import org.apache.ivy.plugins.resolver.RepositoryResolver
+import org.apache.ivy.plugins.resolver.util.ResolverHelper
+import org.apache.ivy.core.module.descriptor.Artifact
+import org.apache.ivy.core.module.descriptor.DefaultArtifact
+import java.util.Date
+import org.apache.ivy.core.IvyPatternHelper
 
 /** The launched conscript entry point */
 class App extends xsbti.AppMain {
@@ -49,24 +58,62 @@ object Deputy {
       else lines
     }
 
-    val availableCommands = List("with-resolvers", "check", "transitive")
-    val List(resolverCommand, checkCommand, explodeCommand) = availableCommands
+    //play:play_2.9.1:2.0.3=http://repo.typesafe.com/typesafe/releases/play/play_2.9.1/2.0.3/play_2.9.1-2.0.3.jar,http://repo1.maven.com/play/play_2.9.1/2.0.3/play_2.9.1-2.0.3.jar
+    //cat f | grep jar | deputy --all-versions artifacts-results 
 
-    //TODO: fix resolvers to load from file
-    val bogusResolvers = List(UrlResolver(List("http://repo.typesafe.com/typesafe/releases/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]"), isM2Compatible = true))
+    //deputy results-download
+
+    val availableCommands = List("coords-artifacts", "artifacts-resolve", "artifacts-transitive", "artifacts-results")
+    val List(resolverCommand, checkCommand, explodeCommand, resultsCommand) = availableCommands
+
+    val ivySettingsPath = args.find(_ == "ivy-settings").flatMap { ivySettingsParam =>
+      if (args.size > args.indexOf(ivySettingsParam))
+        Some(args(args.indexOf(ivySettingsParam)))
+      else
+        None
+    }.getOrElse {
+      "ivy-settings.xml" //TODO: different default?
+    }
+    val ivySettingsFile = new File(ivySettingsPath)
+    if (!ivySettingsFile.isFile) {
+      System.err.println("Cannot find ivy settings xml file in path: " + ivySettingsPath + " ...") //TODO: throw expectedexception instead?
+      System.exit(-1)
+    }
+
     val ivy = DeputyCommands.disableOutput { //TODO: move this one
       val ivy = IvyContext.getContext.getIvy
-      ivy.configure(new File("ivy-settings.xml")) //TODO: add option
-      //ivy.getSettings.getResolvers.map(_.asInstanceOf[URLResolver])....
+      ivy.configure(ivySettingsFile)
+      /*
+        import scala.collection.JavaConversions._
+        
+        val allRepositoryResolvers = DeputyCommands.getRepositoryResolvers(ivy.getSettings.getResolvers.toList)
+        val t = ivy.getSettings.getResolver("typesafe").asInstanceOf[RepositoryResolver]
+        //println("list " + t.getRepository.list("http://repo.typesafe.com/typesafe/releases/play"))
+        //println(t.locate(DefaultArtifact.newPomArtifact(ModuleRevisionId.newInstance("play", "templates_2.9.1", "[2.0.1,)"), new java.util.Date())))
+
+        val partiallyResolvedPattern = IvyPatternHelper.substitute(t.getArtifactPatterns.get(0).asInstanceOf[String], ModuleRevisionId
+          .newInstance(ModuleRevisionId.newInstance("play", "templates_2.9.1", "2.0.3"), IvyPatternHelper.getTokenString(IvyPatternHelper.REVISION_KEY)),
+          DefaultArtifact.newPomArtifact(ModuleRevisionId.newInstance("play", "templates_2.9.1", "2.0.3"), new Date()))
+        println(partiallyResolvedPattern)
+
+        println(ResolverHelper.listTokenValues(t.getRepository, partiallyResolvedPattern,
+          IvyPatternHelper.REVISION_KEY).toList.map(_.toString))
+        System.exit(0)
+        //println(t.getIvyPatterns.toList.map(_.toString))
+        //println(ResolverHelper.findAll(t.getRepository, ModuleRevisionId.newInstance("play", "templates_2.9.1", "2.0.3"), "http://repo.typesafe.com/typesafe/releases/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]", DefaultArtifact.newIvyArtifact(ModuleRevisionId.newInstance("plfay", "plfay_2.9.1", "2.0.3"), new Date())).map(_.getResource.).toList)
+         * 
+         * 
+         */
       ivy
     }
+
     val res = args.headOption.map(command => {
       if (command == resolverCommand) {
-        DeputyCommands.withResolvers(commandLineLoop(List.empty), bogusResolvers)
+        DeputyCommands.withResolvers(commandLineLoop(List.empty), ivy.getSettings)
       } else if (command == checkCommand) {
         DeputyCommands.check(commandLineLoop(List.empty))
       } else if (command == explodeCommand) {
-        DeputyCommands.explodeLines(commandLineLoop(List.empty), ivy.getSettings, bogusResolvers, -1)
+        DeputyCommands.explodeLines(commandLineLoop(List.empty), ivy.getSettings)
       } else {
         System.err.println("Unknown command: " + command)
         -1
