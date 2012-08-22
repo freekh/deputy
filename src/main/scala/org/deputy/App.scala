@@ -30,6 +30,14 @@ import java.util.Date
 import org.apache.ivy.core.IvyPatternHelper
 import java.io.PrintStream
 import java.io.OutputStream
+import akka.actor.ActorSystem
+import akka.actor.Props
+import org.deputy.actors.Executor
+import org.deputy.actors.CoordsWithResolvers
+import akka.pattern.Patterns
+import akka.util.Duration
+import org.deputy.actors.Explode
+import akka.dispatch.Await
 
 /** The launched conscript entry point */
 class App extends xsbti.AppMain {
@@ -62,11 +70,6 @@ object Deputy {
       else lines
     }
 
-    //play:play_2.9.1:2.0.3=http://repo.typesafe.com/typesafe/releases/play/play_2.9.1/2.0.3/play_2.9.1-2.0.3.jar,http://repo1.maven.com/play/play_2.9.1/2.0.3/play_2.9.1-2.0.3.jar
-    //cat f | grep jar | deputy --all-versions artifacts-results 
-
-    //deputy results-download
-
     val availableCommands = List("coords-artifacts", "artifacts-resolve", "artifacts-transitive", "artifacts-results")
     val List(resolverCommand, checkCommand, explodeCommand, resultsCommand) = availableCommands
 
@@ -84,47 +87,29 @@ object Deputy {
       System.exit(-1)
     }
 
-    //WARNING THIS WILL DISABLE PRINTLN
+    //WARNING THIS WILL DISABLE write to System.out
     lazy val disableOut = true
     if (disableOut)
       System.setOut(new PrintStream(new OutputStream() {
         override def write(b: Int) = {}
       }))
 
-    val ivy = { //TODO: move this one
+    val ivy = {
       val ivy = IvyContext.getContext.getIvy
       ivy.configure(ivySettingsFile)
-      /*
-        import scala.collection.JavaConversions._
-        
-        val allRepositoryResolvers = DeputyCommands.getRepositoryResolvers(ivy.getSettings.getResolvers.toList)
-        val t = ivy.getSettings.getResolver("typesafe").asInstanceOf[RepositoryResolver]
-        //println("list " + t.getRepository.list("http://repo.typesafe.com/typesafe/releases/play"))
-        //println(t.locate(DefaultArtifact.newPomArtifact(ModuleRevisionId.newInstance("play", "templates_2.9.1", "[2.0.1,)"), new java.util.Date())))
-
-        val partiallyResolvedPattern = IvyPatternHelper.substitute(t.getArtifactPatterns.get(0).asInstanceOf[String], ModuleRevisionId
-          .newInstance(ModuleRevisionId.newInstance("play", "templates_2.9.1", "2.0.3"), IvyPatternHelper.getTokenString(IvyPatternHelper.REVISION_KEY)),
-          DefaultArtifact.newPomArtifact(ModuleRevisionId.newInstance("play", "templates_2.9.1", "2.0.3"), new Date()))
-        println(partiallyResolvedPattern)
-
-        println(ResolverHelper.listTokenValues(t.getRepository, partiallyResolvedPattern,
-          IvyPatternHelper.REVISION_KEY).toList.map(_.toString))
-        System.exit(0)
-        //println(t.getIvyPatterns.toList.map(_.toString))
-        //println(ResolverHelper.findAll(t.getRepository, ModuleRevisionId.newInstance("play", "templates_2.9.1", "2.0.3"), "http://repo.typesafe.com/typesafe/releases/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]", DefaultArtifact.newIvyArtifact(ModuleRevisionId.newInstance("plfay", "plfay_2.9.1", "2.0.3"), new Date())).map(_.getResource.).toList)
-         * 
-         * 
-         */
       ivy
     }
 
+    val actorSystem = ActorSystem("deputy")
+    val executor = actorSystem.actorOf(Props(new Executor(ivy.getSettings)))
+
     val res = args.headOption.map(command => {
       if (command == resolverCommand) {
-        DeputyCommands.withResolvers(commandLineLoop(List.empty), ivy.getSettings)
-      } else if (command == checkCommand) {
-        DeputyCommands.resolve(commandLineLoop(List.empty))
+        Await.result(Patterns.ask(executor, CoordsWithResolvers(commandLineLoop(List())), Duration.parse("5 minutes")), Duration.parse("5 minutes"))
+        0
       } else if (command == explodeCommand) {
-        DeputyCommands.explodeLines(commandLineLoop(List.empty), ivy.getSettings)
+        Await.result(Patterns.ask(executor, Explode(commandLineLoop(List())), Duration.parse("5 minutes")), Duration.parse("5 minutes"))
+        0
       } else {
         System.err.println("Unknown command: " + command)
         -1
@@ -134,7 +119,7 @@ object Deputy {
       -1
     }
     Http.shutdown
-    DeputyCommands.akkaSystem.shutdown
+    actorSystem.shutdown
     res
   }
   /** Standard runnable class entrypoint */

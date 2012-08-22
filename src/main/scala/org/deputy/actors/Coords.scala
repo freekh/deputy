@@ -1,0 +1,107 @@
+package org.deputy.actors
+
+import akka.actor.Actor
+import org.apache.ivy.plugins.version.VersionRangeMatcher
+import org.apache.ivy.core.settings.IvySettings
+import org.apache.ivy.core.module.id.ModuleRevisionId
+import java.util.Date
+import org.apache.ivy.plugins.resolver.RepositoryResolver
+import org.apache.ivy.plugins.resolver.ChainResolver
+import org.apache.ivy.core.IvyPatternHelper
+import org.deputy.models.Coord
+import org.apache.ivy.core.module.descriptor.DefaultArtifact
+import org.apache.ivy.plugins.resolver.util.ResolverHelper
+import org.deputy.models.Artifact
+import akka.actor.ActorRef
+
+object Coords {
+  def acceptRevision(moduleOrg: String, moduleName: String, settings: IvySettings, a: String, b: String) = synchronized { //VersionRangeMatcher is not thread safe
+    val vrm = new VersionRangeMatcher("range", settings.getDefaultLatestStrategy)
+    vrm.accept(ModuleRevisionId.newInstance(moduleOrg, moduleName, a), ModuleRevisionId.newInstance(moduleOrg, moduleName, b))
+  }
+
+  def isDynamicVersion(moduleOrg: String, moduleName: String, settings: IvySettings, a: String) = synchronized {
+    val vrm = new VersionRangeMatcher("range", settings.getDefaultLatestStrategy)
+    vrm.isDynamic(ModuleRevisionId.newInstance(moduleOrg, moduleName, a))
+  }
+
+}
+
+sealed trait CoordsMsgs
+case class UsingResolvers(coords: Coord, dependentArtifactOpt: Option[Artifact]) extends CoordsMsgs
+case class InitCoord(line: String) extends CoordsMsgs
+
+class CoordsActor(settings: IvySettings, executor: ActorRef, printerActor: ActorRef) extends Actor {
+
+  def getRepositoryResolvers(resolvers: List[_]): List[RepositoryResolver] = {
+    import scala.collection.JavaConversions._
+    resolvers flatMap { //TODO: @tailrec
+
+      case r: RepositoryResolver => List(r)
+      case r: ChainResolver => getRepositoryResolvers(r.getResolvers.toList)
+      //TODO: error msg handling case _ => throw UnsupportedResolver(ivy)  
+    }
+  }
+
+  def receive = {
+    case InitCoord(line) => {
+      self ! UsingResolvers(Coord.parse(line), None)
+    }
+    case UsingResolvers(Coord(moduleOrg, moduleName, revision), dependentArtifactOpt) => {
+      try {
+        import scala.collection.JavaConversions._
+        executor ! CoordsStarted
+
+        val pubDate = new Date() //???
+        val printedArts = for {
+          resolver <- getRepositoryResolvers(settings.getResolvers.toList).distinct
+          pattern <- resolver.getIvyPatterns.map(_.toString)
+          isIvy = !resolver.isM2compatible
+        } yield {
+          //sender ! PatternFound
+          val moduleType = if (isIvy) "ivy" else "pom" //TODO: use DynamicTypes.ivy, ...
+
+          val (module, artifact) = if (isIvy) {
+            val ivyModule = ModuleRevisionId.newInstance(moduleOrg, moduleName, revision)
+            ivyModule -> DefaultArtifact.newIvyArtifact(ivyModule, pubDate)
+          } else {
+            val pomModule = ModuleRevisionId.newInstance(moduleOrg.replace(".", "/"), moduleName, revision)
+            pomModule -> DefaultArtifact.newPomArtifact(pomModule, pubDate)
+          }
+          val partiallyResolvedPattern = IvyPatternHelper.substitute(pattern, ModuleRevisionId
+            .newInstance(module, IvyPatternHelper.getTokenString(IvyPatternHelper.REVISION_KEY)),
+            artifact)
+
+          val possibleRevs = if (Coords.isDynamicVersion(moduleOrg, moduleName, settings, revision)) {
+            ResolverHelper.listTokenValues(resolver.getRepository, partiallyResolvedPattern,
+              IvyPatternHelper.REVISION_KEY)
+          } else Array(revision)
+
+          val arts = for {
+            revs <- Option(possibleRevs).toList
+            currentRev <- revs.toList if !Coords.isDynamicVersion(moduleOrg, moduleName, settings, revision) || Coords.acceptRevision(moduleOrg, moduleName, settings, revision, currentRev)
+          } yield {
+            val url = IvyPatternHelper.substituteToken(partiallyResolvedPattern,
+              IvyPatternHelper.REVISION_KEY, currentRev)
+            val finalArt = Artifact(Some(Coord(moduleOrg, moduleName, currentRev)), Some(url), Some(moduleType), None, dependentArtifactOpt.flatMap(_.artifact))
+            printerActor ! finalArt
+            finalArt
+            //sender ! PossibleRevision
+          }
+          //sender ! Artifacts
+          arts
+        }
+        dependentArtifactOpt.foreach { depArt =>
+          printedArts.flatten.foreach { p =>
+            executor ! ExpandArtifact(p)
+          }
+        }
+
+        executor ! CoordsCompleted
+      } catch {
+        case e => executor ! e
+      }
+    }
+  }
+
+}

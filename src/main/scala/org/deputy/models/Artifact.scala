@@ -20,7 +20,7 @@ object Artifact {
           }
         }
         val resolvedFromArtifact = emptyStringOption(resolvedFromArtifactStr)
-        val coords = if (coordsStr.isEmpty) None else Some(Coords.parse(coordsStr))
+        val coords = if (coordsStr.isEmpty) None else Some(Coord.parse(coordsStr))
         val artifact = emptyStringOption(artifactStr)
         val moduleType = emptyStringOption(moduleTypeStr)
 
@@ -31,7 +31,7 @@ object Artifact {
   }
 }
 
-case class Artifact(coords: Option[Coords], artifact: Option[String], moduleType: Option[String], statusCode: Option[Int], resolvedFromArtifact: Option[String]) {
+case class Artifact(coords: Option[Coord], artifact: Option[String], moduleType: Option[String], statusCode: Option[Int], resolvedFromArtifact: Option[String]) {
   import Artifact._
   def format = {
     val coordsStr = coords.map(_.format).getOrElse { "" }
