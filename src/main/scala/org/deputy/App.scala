@@ -28,6 +28,8 @@ import org.apache.ivy.core.module.descriptor.Artifact
 import org.apache.ivy.core.module.descriptor.DefaultArtifact
 import java.util.Date
 import org.apache.ivy.core.IvyPatternHelper
+import java.io.PrintStream
+import java.io.OutputStream
 
 /** The launched conscript entry point */
 class App extends xsbti.AppMain {
@@ -37,6 +39,8 @@ class App extends xsbti.AppMain {
 }
 
 object Deputy {
+
+  val out = System.out
 
   /**
    * Shared by the launched version and the runnable version,
@@ -80,7 +84,14 @@ object Deputy {
       System.exit(-1)
     }
 
-    val ivy = DeputyCommands.disableOutput { //TODO: move this one
+    //WARNING THIS WILL DISABLE PRINTLN
+    lazy val disableOut = true
+    if (disableOut)
+      System.setOut(new PrintStream(new OutputStream() {
+        override def write(b: Int) = {}
+      }))
+
+    val ivy = { //TODO: move this one
       val ivy = IvyContext.getContext.getIvy
       ivy.configure(ivySettingsFile)
       /*
@@ -111,7 +122,7 @@ object Deputy {
       if (command == resolverCommand) {
         DeputyCommands.withResolvers(commandLineLoop(List.empty), ivy.getSettings)
       } else if (command == checkCommand) {
-        DeputyCommands.check(commandLineLoop(List.empty))
+        DeputyCommands.resolve(commandLineLoop(List.empty))
       } else if (command == explodeCommand) {
         DeputyCommands.explodeLines(commandLineLoop(List.empty), ivy.getSettings)
       } else {
@@ -123,6 +134,7 @@ object Deputy {
       -1
     }
     Http.shutdown
+    DeputyCommands.akkaSystem.shutdown
     res
   }
   /** Standard runnable class entrypoint */

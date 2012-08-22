@@ -21,26 +21,26 @@ import org.apache.ivy.core.module.descriptor.DefaultArtifact
 import java.util.Date
 import org.apache.ivy.plugins.version.VersionRangeMatcher
 import java.io.IOException
+import akka.dispatch.Future
+import akka.actor.ActorSystem
+import akka.dispatch.Await
+import akka.util.Duration
+import org.apache.ivy.core.module.descriptor.ModuleDescriptor
+import akka.actor.Props
 
 object DeputyCommands {
+  implicit val akkaSystem = ActorSystem("deputy")
 
-  object Exts {
-    private val defaults = List("pom", "ivy", "jar", "war")
-    def current = defaults.toSet //TODO: + specified
-    val List(pom, ivy, jar, war) = defaults
-  }
+  def println(s: String) = Deputy.out.println(s)
+  val printerActor = akkaSystem.actorOf(Props(new PrinterActor(Deputy.out)))
 
-  object Classifiers {
-    private val defaults = List("sources", "javadoc")
-    def current = defaults.toSet //TODO: + specified
-    val List(sources, javadoc) = defaults
-  }
+  object ResolutionStrategies {
+    private val all = List("firstCompletedOf", "sequence")
+    val List(firstCompletedOf, sequence) = all
 
-  object Tokens {
-    val classifier = "classifier"
-    val defaults = Map(
-      classifier -> "")
   }
+  val resolutionStrategy = ResolutionStrategies.firstCompletedOf
+
   object DependencyTypes {
     private val all = List("pom", "ivy")
     val List(pom, ivy) = all
@@ -56,33 +56,40 @@ object DeputyCommands {
     }
   }
 
-  def withResolvers(moduleOrg: String, moduleName: String, revision: String, ivySettings: IvySettings): Promise[Set[Artifact]] = {
-    import scala.collection.JavaConversions._
+  def withResolvers(moduleOrg: String, moduleName: String, revision: String, ivySettings: IvySettings): Future[Set[Artifact]] = {
 
-    val vrm = new VersionRangeMatcher("range", ivySettings.getDefaultLatestStrategy)
-    def acceptRevision(a: String, b: String) = {
+    def acceptRevision(a: String, b: String) = synchronized {
+      val vrm = new VersionRangeMatcher("range", ivySettings.getDefaultLatestStrategy)
       vrm.accept(ModuleRevisionId.newInstance(moduleOrg, moduleName, a), ModuleRevisionId.newInstance(moduleOrg, moduleName, b))
     }
 
-    def isDynamicVersion(a: String) = {
+    def isDynamicVersion(a: String) = synchronized {
+      val vrm = new VersionRangeMatcher("range", ivySettings.getDefaultLatestStrategy)
       vrm.isDynamic(ModuleRevisionId.newInstance(moduleOrg, moduleName, a))
     }
+    import scala.collection.JavaConversions.{ synchronized => _, _ }
 
-    val module = ModuleRevisionId.newInstance(moduleOrg, moduleName, revision)
     val pubDate = new Date() //???
-    val pomsAndIvys = Promise.all(for {
-      resolver <- getRepositoryResolvers(ivySettings.getResolvers.toList)
+    val listOfFutures = for {
+      resolver <- getRepositoryResolvers(ivySettings.getResolvers.toList).distinct
       pattern <- resolver.getIvyPatterns.map(_.toString)
       isIvy <- List(true, false)
     } yield {
-      val artifact = if (isIvy) DefaultArtifact.newIvyArtifact(module, pubDate) else DefaultArtifact.newPomArtifact(module, pubDate)
+      val (module, artifact) = if (isIvy) {
+        val ivyModule = ModuleRevisionId.newInstance(moduleOrg, moduleName, revision)
+        ivyModule -> DefaultArtifact.newIvyArtifact(ivyModule, pubDate)
+      } else {
+        val pomModule = ModuleRevisionId.newInstance(moduleOrg.replace(".", "/"), moduleName, revision)
+        pomModule -> DefaultArtifact.newPomArtifact(pomModule, pubDate)
+      }
       val partiallyResolvedPattern = IvyPatternHelper.substitute(pattern, ModuleRevisionId
         .newInstance(module, IvyPatternHelper.getTokenString(IvyPatternHelper.REVISION_KEY)),
         artifact)
       val moduleType = if (isIvy) DependencyTypes.ivy else DependencyTypes.pom
-      val promiseOfRevs = if (isDynamicVersion(revision)) Promise(ResolverHelper.listTokenValues(resolver.getRepository, partiallyResolvedPattern,
+      val promiseOfRevs = if (isDynamicVersion(revision)) Future(ResolverHelper.listTokenValues(resolver.getRepository, partiallyResolvedPattern,
         IvyPatternHelper.REVISION_KEY))
-      else Promise(Array(revision))
+      else Future(Array(revision))
+
       promiseOfRevs.map { revs =>
         for {
           revs <- Option(revs).toList
@@ -90,17 +97,22 @@ object DeputyCommands {
         } yield {
           val url = IvyPatternHelper.substituteToken(partiallyResolvedPattern,
             IvyPatternHelper.REVISION_KEY, currentRev)
-          Artifact(Some(Coords(moduleOrg, moduleName, currentRev)), Some(url), Some(moduleType), None, None)
+          val finalArt = Artifact(Some(Coords(moduleOrg, moduleName, currentRev)), Some(url), Some(moduleType), None, None)
+          printerActor ! finalArt
+          finalArt
         }
       }
-    }).map(_.flatten.toSet)
-
+    }
+    val pomsAndIvys = if (resolutionStrategy == ResolutionStrategies.firstCompletedOf)
+      Future.firstCompletedOf(listOfFutures).map(_.toSet)
+    else
+      Future.sequence(listOfFutures).map(_.toSet.flatten)
     pomsAndIvys
   }
 
   def withResolvers(line: String, ivySettings: IvySettings): Int = {
     val Coords(moduleOrg: String, moduleName: String, revision: String) = Coords.parse(line)
-    withResolvers(moduleOrg, moduleName, revision, ivySettings)().foreach(l => System.out.println(l.format))
+    Await.result(withResolvers(moduleOrg, moduleName, revision, ivySettings), Duration.parse("5 seconds")).foreach(l => System.out.println(l.format))
     0
   }
 
@@ -112,7 +124,7 @@ object DeputyCommands {
     lines.foldLeft(0)((res, line) => res + f(line))
   }
 
-  def check(lines: List[String]): Int = {
+  def resolve(lines: List[String]): Int = {
     val parsedLinesWithArtifacts = lines.map(Artifact.parse).foldLeft(List[(Artifact, String)]())((a, parsedLine) => parsedLine.artifact.map(a => parsedLine -> a).toList ++ a)
     val promise = Promise.all(parsedLinesWithArtifacts.map {
       case (parsedLine, artifact) =>
@@ -131,87 +143,77 @@ object DeputyCommands {
     result()
   }
 
-  def disableOutput[A](f: => A): A = {
-    val out = System.out
-    System.setOut(new PrintStream(new OutputStream() {
-      override def write(b: Int) = {}
-    }))
-    try {
-      f
-    } finally {
-      System.setOut(out);
-    }
-  }
+  def explode(artifacts: Seq[Artifact], settings: IvySettings): Seq[Future[Seq[Artifact]]] = {
 
-  def explode(parsedLines: Set[Artifact], settings: IvySettings, currentLevel: Int, levels: Int = -1): Promise[Set[Artifact]] = {
-    def getDependencies(line: Artifact): Promise[Set[Artifact]] = {
-      if (line.moduleType == Some(DependencyTypes.pom)) {
-        //println("checking dep for pom in: " + line)
-        //THIS CODE IS IN WRITE-ONLY MODE, MUST FIX
-        line.artifact.flatMap { pomArtifact =>
-          val promPomOpt = disableOutput {
-            val pomParser = PomModuleDescriptorParser.getInstance
-            val artifactFile = new File(pomArtifact)
-
-            if (pomArtifact.startsWith("http")) {
-              try {
-                Some(Promise(pomParser.parseDescriptor(settings, new URL(pomArtifact), false)))
-              } catch {
-                case e: IOException =>
-                  None
-              }
-            } else if (artifactFile.isFile) {
-              Some(Promise(pomParser.parseDescriptor(settings, artifactFile.toURI.toURL, false)))
-            } else {
-              None
-            }
-          }
-
-          promPomOpt.map { promPom =>
-            promPom.flatMap { pom =>
-              pom.getDependencies.toList.map { depDescriptor =>
-                val dep = depDescriptor.getDependencyRevisionId
-                println(Artifact(Some(Coords(dep.getOrganisation, dep.getName, dep.getRevision)), None, Some(DependencyTypes.pom), None, Some(pomArtifact)).format)
-                val ls = withResolvers(dep.getOrganisation, dep.getName, dep.getRevision, settings).map { l =>
-                  l.map(_.copy(resolvedFromArtifact = Some(pomArtifact)))
-                }
-                ls
-              }
-            }.map(_.flatten.toSet)
-          }
-        }.getOrElse {
-          Promise(Set[Artifact]())
+    def parseInFutureIOCatch(artifact: URL, pomArtifact: String) = Future {
+      { //disableOutput {
+        val pomParser = PomModuleDescriptorParser.getInstance
+        try {
+          val pomDescr = pomParser.parseDescriptor(settings, artifact, false)
+          pomDescr.getDependencies.map { depDescr =>
+            val dep = depDescr.getDependencyRevisionId
+            //println("found new dep: " + dep + " from " + artifact)
+            dep -> pomArtifact
+          }.toList
+        } catch {
+          case e: IOException => List.empty
         }
-      } else {
-        Promise(Set[Artifact]())
       }
-
-    }
-    val depsPromise = Promise.all(
-      parsedLines.map { line =>
-        getDependencies(line)
-      }).map(_.flatten.toSet).flatMap { lines =>
-        val newLines = lines.diff(parsedLines)
-        if (newLines.nonEmpty)
-          explode(newLines, settings, currentLevel + 1, levels).map { //TODO:make explode @tailrec
-            newLines
-            lines ++
+    }.flatMap { depArtifacts =>
+      val listOfFutures = depArtifacts.map { //I think it is ok to sequence here, because withResolvers will output stuff
+        case (dep, pomArtifact) =>
+          //println(dep.getOrganisation + ":" + dep.getName + ":" + dep.getRevision) //REMOVE
+          withResolvers(dep.getOrganisation, dep.getName, dep.getRevision, settings).map { l =>
+            l.map(_.copy(resolvedFromArtifact = Some(pomArtifact)))
           }
-        else
-          Promise(lines)
       }
-    depsPromise
+      val futureOfDeps = if (resolutionStrategy == ResolutionStrategies.firstCompletedOf) {
+        Future.firstCompletedOf(listOfFutures).map(_.toSeq)
+      } else {
+        Future.sequence(listOfFutures).map(_.flatten)
+      }
+      futureOfDeps
+    }
+
+    def getDependencies(artifact: Artifact): Seq[Future[Seq[Artifact]]] =
+      artifact.moduleType.toSeq.flatMap { moduleType =>
+        if (moduleType == DependencyTypes.pom) {
+          val pomFutureOpt = artifact.artifact.map { pomArtifact =>
+            val artifactFile = new File(pomArtifact)
+            val artifacts = if (pomArtifact.startsWith("http")) {
+              parseInFutureIOCatch(new URL(pomArtifact), pomArtifact)
+            } else if (artifactFile.isFile) {
+              parseInFutureIOCatch(artifactFile.toURI.toURL, pomArtifact)
+            } else {
+              Future(Seq.empty)
+            }
+            artifacts
+          }
+          pomFutureOpt
+        } else {
+          Seq.empty
+        }
+      }
+    artifacts.flatMap { artifact =>
+      printerActor ! artifact
+      val depsFutures = getDependencies(artifact)
+      depsFutures.map { depsFuture =>
+        depsFuture.flatMap { deps => //I think this is ok, because we are async printing out
+          val newDeps = deps.diff(artifacts)
+          if (newDeps.nonEmpty)
+            Future.sequence(explode(newDeps, settings)).map(deps => artifact +: deps.flatten) //TODO: yeah, it should be @tailrec 
+          else
+            Future(Seq.empty)
+        }
+      }
+    }
   }
 
-  def explodeLines(lines: List[String], settings: IvySettings, levels: Int = -1): Int = {
-    val parsedLines = lines.map(Artifact.parse)
-    parsedLines.foreach { l => println(l.format) }
-    explode(parsedLines.toSet, settings, 0, levels).foreach { p =>
-      p.foreach { l =>
-        println(l.format)
-      }
-    }
+  def explodeLines(lines: List[String], settings: IvySettings): Int = {
+    val artifacts = lines.map(Artifact.parse)
+    Await.result(Future.sequence(explode(artifacts, settings)), Duration.parse("10 minutes"))
     0
   }
 
+  //Seq[Future[Artificat]] =>
 }

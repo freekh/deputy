@@ -10,14 +10,14 @@ Deputy stands for dependency utility and is a command line tool that enables you
 
 What does it not do?
 =============
-It does not build. Deputy handles dependencies. Not only does it not build, it does not do anything else either - it is just for managing dependencies. 
+It does not build. Deputy handles dependencies. Not only does it NOT build, it does not do anything else either - it is just a utilty for dependencies. 
 It is not monolitic. If you do not like that you have to perform several commands to get something interesting, you better look for some alternatives.  SBT is a great tool if you want to have a lot of control and build lots of stuff in one command. 
 
 How does it work?
 ==========
 Deputy is designed to work by piping the output of a command into another. 
 Typically you will start with some coordinates (describing the dependencies) and end up with a list of downloaded jars.
-It is up to you to define what will happen between this though.
+It is up to you to define what will happen between this though or if you want to stop in between.
 This makes it easy to see what goes out and in between each command and thus makes it easy to see what happens.
 The problem with this is approach is that you have to know what you want.
 
@@ -30,15 +30,14 @@ And that is the simple explaination: deputy is meant to help you to be explicit 
 What could  you use it for?
 =================
 You are welcome to use deputy for whatever you like, but here are some use cases it actually fits:
-1) Whenever you just have some dependencies in your project: Most of the time, I just want to have the jars that I depend on, but these cannot be put under a distributed version control system. A comprimise can therefore be to have a list of urls you can download the jars you need and a tool that downloads them SUPER quick. 
+1) Whenever you just have some dependencies in your project: Most of the time, I just want to have the jars that I depend on, but these cannot be put under a distributed version control system. A comprimise can therefore be to have a list of urls you can download the jars you need and a tool that downloads them SUPER quick. This is something deputy will help you with.
 2) Debugging ivy: for some reason your code is getting AbstractMethodErrors. You see your classpath has some jars it shouldn't have but why? With deputy you can easily figure out what is failing and why you were doing it in the first place.
-3) Easily inspecting what jars and artifacts your project depends on
-4) Handle dependencies in an exteremly stable manner: base your project on links to the jars, links you know work and all surprises are gone.
+3) Easily inspecting what jars and artifacts your project depends on.
+4) Handle dependencies in an exteremly stable manner: base your project on links to the jars, links you know work and all surprises are gone. Adding the md5 sums for even more stability also is something that you can do.
 
 INSTALLATION
 -----------
 Install conscript (TODO: link) and then do: `cs freekh/deputy` 
-
 
 COMMANDS
 ----------
@@ -60,6 +59,8 @@ COMING:
 - artifacts-results: transform from artifacts to results
 - results-download-file: download the list of results. outputs the location of the files which were downloaded
 - results-coords: transform from results to coords
+- file-dependencies-class:  in a jar or class see all the classes 
+- file-declares-class: see which classes a jar declares 
 
 PLANNED:
 - sbt-artifacts: transform a sbt project into artifacts
@@ -71,7 +72,7 @@ Examples:
 =======
 Here are a couple commands to help you see how things works:
 1) See all possible mutations of a dependency based on your resolver: `echo "commons-cli:commons-cli:1.0\ncommons-lang:commons-lang:2.0"  | deputy --ivy-settings=ivy-settings.xml coords-artifacts > deputy.artifacts`
-2) Try to resolve and add status code to lines: `cat deputy.artifacts | deputy artifacts-check > deputy.artifacts.checked`
+2) Resolve the artifacts and to see the jars:  `cat deputy.artifacts | deputy artifacts-resolve > deputy.artifacts.checked`
 3) See links to all the jars that could be resolved: `cat deputy.artifacts.checked | grep jar | deputy artifacts-results`
 
 COOKBOOK RECIPES
@@ -79,7 +80,7 @@ COOKBOOK RECIPES
 
 Finding all the jars from a set of dependencies
 =============================
-`echo "commons-cli:commons-cli:1.0\ncommons-lang:commons-lang:2.0"  | deputy --ivy-settings=ivy-settings.xml coords-artifacts artifacts-transitive artifacts-results > deputy.results`
+`echo "commons-cli:commons-cli:1.0\ncommons-lang:commons-lang:2.0"  | deputy --ivy-settings=ivy-settings.xml coords-artifacts artifacts-resolve artifacts-transitive artifacts-results > deputy.results`
 
 
 Downloading  the jars
@@ -130,5 +131,5 @@ Using inotify-tools,zinc (https://github.com/typesafehub/zinc), the excellent in
 
 COMING: using deputy with sbt
 ====================
-SBT is a great build tool, but sometimes it can be frustrating to know where it's getting the jars from. This is not SBTs fault, rather a consequence of it using ivy. 
+SBT is a great build tool, but sometimes it can be hard to know where it's getting the jars from. This is not SBTs fault, rather a consequence of it using ivy. 
 In this section you can read about using deputy with SBT.
