@@ -13,6 +13,7 @@ import org.apache.ivy.core.module.descriptor.DefaultArtifact
 import org.apache.ivy.plugins.resolver.util.ResolverHelper
 import org.deputy.models.Artifact
 import akka.actor.ActorRef
+import org.deputy.Deputy
 
 object Coords {
   def acceptRevision(moduleOrg: String, moduleName: String, settings: IvySettings, a: String, b: String) = synchronized { //VersionRangeMatcher is not thread safe
@@ -45,12 +46,12 @@ class CoordsActor(settings: IvySettings, executor: ActorRef, printerActor: Actor
 
   def receive = {
     case InitCoord(line) => {
+      executor ! CoordsStarted
       self ! UsingResolvers(Coord.parse(line), None, false)
     }
     case UsingResolvers(coord @ Coord(moduleOrg, moduleName, revision), dependentArtifactOpt, transitive) => {
       try {
         import scala.collection.JavaConversions._
-        executor ! CoordsStarted
         val pubDate = new Date() //???
         val printedArts = for {
           resolver <- getRepositoryResolvers(settings.getResolvers.toList).distinct if resolver.getName == "typesafe"
@@ -85,11 +86,10 @@ class CoordsActor(settings: IvySettings, executor: ActorRef, printerActor: Actor
             val c = Coord(moduleOrg, moduleName, currentRev)
             val finalArt = Artifact(Some(c), Some(url), Some(moduleType), None, dependentArtifactOpt.flatMap(_.artifact))
             printerActor ! finalArt
-            System.err.println("expanding:" + url)
+            //Deputy.debug("expanding:" + url)
             finalArt
-            //sender ! PossibleRevision
             if (transitive) {
-              System.err.println("executorDeps:" + url)
+              //Deputy.debug("executorDeps:" + url)
               executor ! DependenciesFor(finalArt)
             }
           }

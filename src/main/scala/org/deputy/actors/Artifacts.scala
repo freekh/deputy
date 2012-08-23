@@ -11,6 +11,7 @@ import java.io.File
 import org.deputy.models.Artifact
 import org.deputy.models.Coord
 import org.apache.ivy.core.module.descriptor.ModuleDescriptor
+import org.deputy.Deputy
 
 sealed trait ArtifactsMsgs
 case class InitArtifact(line: String) extends ArtifactsMsgs
@@ -21,6 +22,7 @@ class ArtifactsActor(settings: IvySettings, executor: ActorRef, printerActor: Ac
 
   def receive = {
     case InitArtifact(line) => {
+      executor ! CoordsStarted
       self ! DependenciesFor(Artifact.parse(line))
     }
 
@@ -29,8 +31,7 @@ class ArtifactsActor(settings: IvySettings, executor: ActorRef, printerActor: Ac
     }
     case DependenciesFor(artifact) => {
       try {
-        executor ! CoordsStarted
-        System.err.println("depsFor:" + artifact)
+        Deputy.debug("depsFor:" + artifact)
 
         printerActor ! artifact
 
@@ -59,8 +60,9 @@ class ArtifactsActor(settings: IvySettings, executor: ActorRef, printerActor: Ac
           deps.map { depDescr =>
             val dep = depDescr.getDependencyRevisionId
             val c = Coord(dep.getOrganisation, dep.getName, dep.getRevision)
-            System.err.println("resolving:" + c)
+            Deputy.debug("resolving:" + c)
             //executor ! ResolversFor(c)
+            executor ! CoordsStarted
             coordsActor ! UsingResolvers(c, Some(artifact), true)
           }
         }

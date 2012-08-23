@@ -31,15 +31,15 @@ class Executor(settings: IvySettings) extends Actor {
 
   val printerActor = context.actorOf(Props(new OrderedPrinterActor(Deputy.out)))
 
-  val coordsActor = context.actorOf(Props(new CoordsActor(settings, self, printerActor)).withRouter(
-    RoundRobinRouter(nrOfInstances = 100)))
+  val coordsActor = context.actorOf(Props(new CoordsActor(settings, self, printerActor)).withRouter(RoundRobinRouter(nrOfInstances = 1)))
 
-  val artifactsActor = context.actorOf(Props(new ArtifactsActor(settings, self, printerActor, coordsActor)).withRouter(
-    RoundRobinRouter(nrOfInstances = 100)))
+  val artifactsActor = context.actorOf(Props(new ArtifactsActor(settings, self, printerActor, coordsActor)).withRouter(RoundRobinRouter(nrOfInstances = 1)))
+
+  val ignoreVersion = false
 
   var lastLine = ""
   def redrawStatus = {
-    //System.err.print("\b" * lastLine.size)
+    Deputy.progress("\b" * lastLine.size)
     lastLine = "%4d/%4d|deps: %4d/%4d| levels: %4d|new: %4d|errors: %4d".format(
       coordsCompleted,
       coordsStarted,
@@ -48,7 +48,16 @@ class Executor(settings: IvySettings) extends Actor {
       levelsOfDeps,
       coordsDeps.size,
       errors)
-    //System.err.print(lastLine)
+    Deputy.progress(lastLine)
+    Deputy.progress("\r")
+  }
+
+  def redrawAndcheckIfFinished = {
+    redrawStatus
+    if ((coordsCompleted + errors) >= (coordsStarted)) {
+      initiator ! Done
+      Deputy.progress("\n")
+    }
   }
 
   def receive = {
@@ -65,13 +74,21 @@ class Executor(settings: IvySettings) extends Actor {
       }
     }
     case DependenciesFor(art) => {
+      dependenciesResolved += 1
       art.coords.foreach { coord =>
-        if (!coordsDeps.contains(coord)) {
-          artifactsActor ! DependenciesFor(art)
+        val coordRefined = if (ignoreVersion) {
+          Coord(coord.moduleOrg, coord.moduleName, "")
         } else {
-          coordsDeps = coordsDeps :+ coord
+          coord
+        }
+        if (!coordsDeps.contains(coordRefined)) {
+          Deputy.debug("firstTime:" + coordRefined)
+          coordsDeps = coordsDeps :+ coordRefined
+          coordsStarted += 1
+          artifactsActor ! DependenciesFor(art)
         }
       }
+      redrawStatus
     }
     case CoordsStarted => {
       coordsStarted += 1
@@ -83,20 +100,16 @@ class Executor(settings: IvySettings) extends Actor {
     }
     case CoordsCompleted => {
       coordsCompleted += 1
-      redrawStatus
-      if ((coordsCompleted + errors) >= coordsStarted) {
-        initiator ! Done
-        System.err.println
-      }
+      redrawAndcheckIfFinished
     }
 
     case e: Exception => {
+      Deputy.debug("Got exception : " + e)
       errors += 1
-      redrawStatus
-      if ((coordsCompleted + errors) >= coordsStarted) initiator ! Done
+      redrawAndcheckIfFinished
     }
     case u => {
-      System.err.println("OMG: " + u)
+      Deputy.debug("Got unexpected message : " + u)
     }
   }
 

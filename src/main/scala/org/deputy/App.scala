@@ -50,6 +50,17 @@ object Deputy {
 
   val out = System.out
 
+  val progressMode = true
+  def progress(s: String) = {
+    if (progressMode)
+      System.err.print(s)
+  }
+  val debugMode = false
+  def debug(s: String) = {
+    if (debugMode)
+      System.err.println(s)
+  }
+
   /**
    * Shared by the launched version and the runnable version,
    * returns the process status code
@@ -109,6 +120,7 @@ object Deputy {
         0
       } else if (command == explodeCommand) {
         Await.result(Patterns.ask(executor, Explode(commandLineLoop(List())), Duration.parse("5 minutes")), Duration.parse("5 minutes"))
+        //Thread.sleep(40000)
         0
       } else {
         System.err.println("Unknown command: " + command)
