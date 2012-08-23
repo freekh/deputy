@@ -28,7 +28,7 @@ object Coords {
 }
 
 sealed trait CoordsMsgs
-case class UsingResolvers(coords: Coord, dependentArtifactOpt: Option[Artifact]) extends CoordsMsgs
+case class UsingResolvers(coords: Coord, dependentArtifactOpt: Option[Artifact], transitive: Boolean) extends CoordsMsgs
 case class InitCoord(line: String) extends CoordsMsgs
 
 class CoordsActor(settings: IvySettings, executor: ActorRef, printerActor: ActorRef) extends Actor {
@@ -45,16 +45,15 @@ class CoordsActor(settings: IvySettings, executor: ActorRef, printerActor: Actor
 
   def receive = {
     case InitCoord(line) => {
-      self ! UsingResolvers(Coord.parse(line), None)
+      self ! UsingResolvers(Coord.parse(line), None, false)
     }
-    case UsingResolvers(Coord(moduleOrg, moduleName, revision), dependentArtifactOpt) => {
+    case UsingResolvers(coord @ Coord(moduleOrg, moduleName, revision), dependentArtifactOpt, transitive) => {
       try {
         import scala.collection.JavaConversions._
         executor ! CoordsStarted
-
         val pubDate = new Date() //???
         val printedArts = for {
-          resolver <- getRepositoryResolvers(settings.getResolvers.toList).distinct
+          resolver <- getRepositoryResolvers(settings.getResolvers.toList).distinct if resolver.getName == "typesafe"
           pattern <- resolver.getIvyPatterns.map(_.toString)
           isIvy = !resolver.isM2compatible
         } yield {
@@ -83,20 +82,21 @@ class CoordsActor(settings: IvySettings, executor: ActorRef, printerActor: Actor
           } yield {
             val url = IvyPatternHelper.substituteToken(partiallyResolvedPattern,
               IvyPatternHelper.REVISION_KEY, currentRev)
-            val finalArt = Artifact(Some(Coord(moduleOrg, moduleName, currentRev)), Some(url), Some(moduleType), None, dependentArtifactOpt.flatMap(_.artifact))
+            val c = Coord(moduleOrg, moduleName, currentRev)
+            val finalArt = Artifact(Some(c), Some(url), Some(moduleType), None, dependentArtifactOpt.flatMap(_.artifact))
             printerActor ! finalArt
+            System.err.println("expanding:" + url)
             finalArt
             //sender ! PossibleRevision
+            if (transitive) {
+              System.err.println("executorDeps:" + url)
+              executor ! DependenciesFor(finalArt)
+            }
           }
           //sender ! Artifacts
           arts
         }
-        dependentArtifactOpt.foreach { depArt =>
-          printedArts.flatten.foreach { p =>
-            executor ! ExpandArtifact(p)
-          }
-        }
-
+        //executor ! FindDepsFor(coord)
         executor ! CoordsCompleted
       } catch {
         case e => executor ! e

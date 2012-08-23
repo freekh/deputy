@@ -23,38 +23,48 @@ class ArtifactsActor(settings: IvySettings, executor: ActorRef, printerActor: Ac
     case InitArtifact(line) => {
       self ! DependenciesFor(Artifact.parse(line))
     }
+
+    case AllArtifacts(pomDescr) => {
+      //System.err.println(pomDescr.getAllArtifacts.map(_.toString).toList)
+    }
     case DependenciesFor(artifact) => {
       try {
-        executor ! LevelsOfDeps
         executor ! CoordsStarted
+        System.err.println("depsFor:" + artifact)
+
         printerActor ! artifact
+
         val location = artifact.artifact
         val urlOpt = location.flatMap { l =>
-          if (l.startsWith("http"))
-            Some(new URL(l))
-          else {
+          if (l.startsWith("file")) {
             val f = new File(l)
             if (f.exists) {
               Some(f.toURI.toURL)
             } else {
               None
             }
+          } else {
+            Some(new URL(l))
           }
         }
 
         urlOpt.foreach { artifactUrl =>
+          //executor ! LevelsOfDeps
           val pomParser = PomModuleDescriptorParser.getInstance
           val pomDescr = pomParser.parseDescriptor(settings, artifactUrl, false)
+
           val deps = pomDescr.getDependencies
-          //self ! AllArtifacts(pomDescr)
+          self ! AllArtifacts(pomDescr)
           executor ! DependenciesFound(deps.size)
           deps.map { depDescr =>
             val dep = depDescr.getDependencyRevisionId
-            coordsActor ! UsingResolvers(Coord(dep.getOrganisation, dep.getName, dep.getRevision), Some(artifact))
-            executor ! DependencyResolved(Coord(dep.getOrganisation, dep.getName, dep.getRevision))
+            val c = Coord(dep.getOrganisation, dep.getName, dep.getRevision)
+            System.err.println("resolving:" + c)
+            //executor ! ResolversFor(c)
+            coordsActor ! UsingResolvers(c, Some(artifact), true)
           }
         }
-        //executor ! LineCompleted
+
         executor ! CoordsCompleted
       } catch {
         case e =>
