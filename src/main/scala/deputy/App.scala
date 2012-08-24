@@ -42,6 +42,12 @@ object Deputy {
 
   val latestVersion = true
 
+  val exitOnFail = true
+  def fail(s: String) = {
+    System.err.println(s)
+    if (exitOnFail) System.exit(-1)
+  }
+
   /**
    * Shared by the launched version and the runnable version,
    * returns the process status code

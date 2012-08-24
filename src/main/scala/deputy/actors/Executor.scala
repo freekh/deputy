@@ -18,6 +18,20 @@ case object CoordsCompleted extends ExecutorMsgs
 case object CoordsStarted extends ExecutorMsgs
 case object DepedencyResolved extends ExecutorMsgs
 case object Done extends ExecutorMsgs
+case class DependenciesFor(artifact: Artifact) extends ExecutorMsgs
+
+object Executor {
+  def executeTask(executor: ActorRef)(f: => Unit) = {
+    try {
+      executor ! CoordsStarted
+      f
+      executor ! CoordsCompleted
+    } catch {
+      case e =>
+        executor ! e
+    }
+  }
+}
 
 class Executor(settings: IvySettings) extends Actor {
   var dependenciesFound = 0
@@ -65,13 +79,13 @@ class Executor(settings: IvySettings) extends Actor {
     case CoordsWithResolvers(lines) => {
       initiator = sender
       lines.foreach { l =>
-        coordsActor ! InitCoord(l)
+        coordsActor ! Coord.parse(l)
       }
     }
     case Explode(lines) => {
       initiator = sender
       lines.foreach { l =>
-        artifactsActor ! InitArtifact(l)
+        artifactsActor ! Artifact.parse(l)
       }
     }
     case DepedencyResolved => {
