@@ -133,3 +133,8 @@ COMING: using deputy with sbt
 ====================
 SBT is a great build tool, but sometimes it can be hard to know where it's getting the jars from. This is not SBTs fault, rather a consequence of it using ivy. 
 In this section you can read about using deputy with SBT.
+
+THANKS
+=====
+Dean Thompson for: coming up the name deputy; the way commands look; and the way the tool works :)
+Various Typesafe people for hearing me out and the encourements. 

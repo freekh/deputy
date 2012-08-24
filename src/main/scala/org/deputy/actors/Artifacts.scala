@@ -26,9 +26,6 @@ class ArtifactsActor(settings: IvySettings, executor: ActorRef, printerActor: Ac
       self ! DependenciesFor(Artifact.parse(line))
     }
 
-    case AllArtifacts(pomDescr) => {
-      //System.err.println(pomDescr.getAllArtifacts.map(_.toString).toList)
-    }
     case DependenciesFor(artifact) => {
       try {
         Deputy.debug("depsFor:" + artifact)
@@ -55,15 +52,32 @@ class ArtifactsActor(settings: IvySettings, executor: ActorRef, printerActor: Ac
           val pomDescr = pomParser.parseDescriptor(settings, artifactUrl, false)
 
           val deps = pomDescr.getDependencies
-          self ! AllArtifacts(pomDescr)
+
+          //Deputy.debug(pomDescr.getAllArtifacts.map(_.getAttributes()).toList)
+
           executor ! DependenciesFound(deps.size)
           deps.map { depDescr =>
             val dep = depDescr.getDependencyRevisionId
+
+            Deputy.debug(depDescr.getModuleConfigurations().toList.map(_.toString).toString)
             val c = Coord(dep.getOrganisation, dep.getName, dep.getRevision)
-            Deputy.debug("resolving:" + c)
-            //executor ! ResolversFor(c)
-            executor ! CoordsStarted
-            coordsActor ! UsingResolvers(c, Some(artifact), true)
+            val conf = depDescr.getModuleConfigurations()
+            val transitive = !conf.contains("optional") && (conf.contains("compile") || conf.contains("runtime"))
+            val excludeRules = depDescr.getExcludeRules(conf)
+            val excludeCoord = excludeRules.forall {
+              case r =>
+                r.getId().getModuleId().getName() == dep.getName &&
+                  r.getId().getModuleId().getOrganisation == dep.getOrganisation
+            }
+            if (excludeCoord) {
+              Deputy.debug("resolving:" + c)
+              //executor ! ResolversFor(c)
+              executor ! CoordsStarted
+              coordsActor ! UsingResolvers(c, Some(artifact), transitive)
+            } else {
+              Deputy.debug("excluding: " + c)
+            }
+
           }
         }
 

@@ -16,6 +16,7 @@ case class Explode(lines: List[String]) extends ExecutorMsgs
 case class DependenciesFound(i: Int) extends ExecutorMsgs
 case object CoordsCompleted extends ExecutorMsgs
 case object CoordsStarted extends ExecutorMsgs
+case object DepedencyResolved extends ExecutorMsgs
 case object Done extends ExecutorMsgs
 
 class Executor(settings: IvySettings) extends Actor {
@@ -73,8 +74,13 @@ class Executor(settings: IvySettings) extends Actor {
         artifactsActor ! InitArtifact(l)
       }
     }
-    case DependenciesFor(art) => {
+    case DepedencyResolved => {
       dependenciesResolved += 1
+      redrawStatus
+    }
+    case DependenciesFor(art) => {
+      //if (dependenciesResolved > dependenciesFound)
+      //System.err.println("too many deps when processing: " + art)
       art.coords.foreach { coord =>
         val coordRefined = if (ignoreVersion) {
           Coord(coord.moduleOrg, coord.moduleName, "")

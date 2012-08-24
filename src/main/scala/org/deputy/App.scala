@@ -61,6 +61,8 @@ object Deputy {
       System.err.println(s)
   }
 
+  val latestVersion = true
+
   /**
    * Shared by the launched version and the runnable version,
    * returns the process status code

@@ -53,6 +53,7 @@ class CoordsActor(settings: IvySettings, executor: ActorRef, printerActor: Actor
       try {
         import scala.collection.JavaConversions._
         val pubDate = new Date() //???
+        if (transitive) executor ! DepedencyResolved
         val printedArts = for {
           resolver <- getRepositoryResolvers(settings.getResolvers.toList).distinct if resolver.getName == "typesafe"
           pattern <- resolver.getIvyPatterns.map(_.toString)
@@ -77,8 +78,13 @@ class CoordsActor(settings: IvySettings, executor: ActorRef, printerActor: Actor
               IvyPatternHelper.REVISION_KEY)
           } else Array(revision)
 
+          val revs = if (Deputy.latestVersion) {
+            possibleRevs.sorted.lastOption.toList
+          } else {
+            possibleRevs.toList
+          }
+
           val arts = for {
-            revs <- Option(possibleRevs).toList
             currentRev <- revs.toList if !Coords.isDynamicVersion(moduleOrg, moduleName, settings, revision) || Coords.acceptRevision(moduleOrg, moduleName, settings, revision, currentRev)
           } yield {
             val url = IvyPatternHelper.substituteToken(partiallyResolvedPattern,
