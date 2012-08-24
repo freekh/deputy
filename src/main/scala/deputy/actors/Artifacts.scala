@@ -1,4 +1,4 @@
-package org.deputy.actors
+package deputy.actors
 
 import akka.actor.Actor
 import org.apache.ivy.core.settings.IvySettings
@@ -8,10 +8,10 @@ import java.io.IOException
 import org.apache.ivy.core.module.id.ModuleRevisionId
 import akka.actor.ActorRef
 import java.io.File
-import org.deputy.models.Artifact
-import org.deputy.models.Coord
+import deputy.models.Artifact
+import deputy.models.Coord
 import org.apache.ivy.core.module.descriptor.ModuleDescriptor
-import org.deputy.Deputy
+import deputy.Deputy
 
 sealed trait ArtifactsMsgs
 case class InitArtifact(line: String) extends ArtifactsMsgs

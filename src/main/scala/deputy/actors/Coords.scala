@@ -1,4 +1,4 @@
-package org.deputy.actors
+package deputy.actors
 
 import akka.actor.Actor
 import org.apache.ivy.plugins.version.VersionRangeMatcher
@@ -8,12 +8,12 @@ import java.util.Date
 import org.apache.ivy.plugins.resolver.RepositoryResolver
 import org.apache.ivy.plugins.resolver.ChainResolver
 import org.apache.ivy.core.IvyPatternHelper
-import org.deputy.models.Coord
+import deputy.models.Coord
 import org.apache.ivy.core.module.descriptor.DefaultArtifact
 import org.apache.ivy.plugins.resolver.util.ResolverHelper
-import org.deputy.models.Artifact
+import deputy.models.Artifact
 import akka.actor.ActorRef
-import org.deputy.Deputy
+import deputy.Deputy
 
 object Coords {
   def acceptRevision(moduleOrg: String, moduleName: String, settings: IvySettings, a: String, b: String) = synchronized { //VersionRangeMatcher is not thread safe

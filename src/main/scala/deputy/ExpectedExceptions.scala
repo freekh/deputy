@@ -1,4 +1,4 @@
-package org.deputy
+package deputy
 
 object expectedExceptions {
   class ExpectedException(val msg: String) extends Exception(msg)

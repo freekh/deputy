@@ -1,0 +1,2 @@
+package deputy.models
+

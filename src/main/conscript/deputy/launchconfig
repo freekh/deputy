@@ -1,8 +1,8 @@
 [app]
   version: 0.1.3
-  org: org.deputy
+  org: deputy
   name: deputy
-  class: org.deputy.App
+  class: deputy.App
 [scala]
   version: 2.9.1
 [repositories]

@@ -1,6 +1,6 @@
-package org.deputy.models
+package deputy.models
 
-import org.deputy.expectedExceptions._
+import deputy.expectedExceptions._
 
 object Artifact {
   val sep = "|"

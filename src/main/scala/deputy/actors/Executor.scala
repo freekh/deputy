@@ -1,14 +1,14 @@
-package org.deputy.actors
+package deputy.actors
 
 import akka.actor.Actor
 import akka.actor.Props
 import akka.routing.RoundRobinRouter
 import org.apache.ivy.core.settings.IvySettings
 import akka.actor.ActorRef
-import org.deputy.Deputy
-import org.deputy.models.Artifact
-import org.deputy.models.Coord
-import org.deputy.models.Coord
+import deputy.Deputy
+import deputy.models.Artifact
+import deputy.models.Coord
+import deputy.models.Coord
 
 sealed trait ExecutorMsgs
 case class CoordsWithResolvers(lines: List[String]) extends ExecutorMsgs

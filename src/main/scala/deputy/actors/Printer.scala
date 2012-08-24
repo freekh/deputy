@@ -1,8 +1,8 @@
-package org.deputy.actors
+package deputy.actors
 
 import akka.actor.Actor
 import java.io.PrintStream
-import org.deputy.models.Artifact
+import deputy.models.Artifact
 
 /**
  * Prints an artifact iif it does NOT depend on anything not YET printed
