@@ -55,8 +55,6 @@ class Artifacts(settings: IvySettings) { handler: ArtifactsHandler =>
           val currentExcludeRules = depDescr.getExcludeRules(conf)
           //TODO: add support for scopes 
 
-          println(currentExcludeRules.toList.map(_.getId.getModuleId.getName)) //TODO: REMOVE
-          //println(depDescr.getModuleConfigurations().map(_.toString).toList)
           currentExcludeRules.map { rule =>
             handler.addExcludeRule(c, location, rule.getId.getModuleId.getOrganisation, Some(rule.getId.getModuleId.getName))
           }

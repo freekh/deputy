@@ -27,7 +27,6 @@ class ArtifactsTest extends Specification with MustMatchers {
     }
 
     def addExcludeRule(parent: Coord, id: String, excludeOrg: String, excludeNameOpt: Option[String]): Unit = {
-      println(parent + " " + excludeOrg)
       val key = parent -> Some(id)
       val newExcludeRules = excludes.get(parent -> Some(id)).map { rules =>
         rules :+ (excludeOrg, excludeNameOpt)
@@ -45,9 +44,10 @@ class ArtifactsTest extends Specification with MustMatchers {
     ivy.getSettings
   }
 
-  "Dependencies in a POM" should {
-    "be resolved correctly" in {
-      val pomPath = "test/samples/poms/play.pom"
+  "Dependencies" should {
+    val playPom = "play.pom"
+    ("be resolved correctly when using " + playPom) in {
+      val pomPath = "test/samples/poms/" + playPom
       pomPath must beAnExistingPath
       val testLocation = Some((new File(pomPath)).toURI.toURL.toString)
 
