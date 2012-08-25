@@ -46,6 +46,7 @@ class ArtifactsTest extends Specification with MustMatchers {
 
   "Dependencies" should {
     val playPom = "play.pom"
+    val nettyPom = "netty.pom"
     ("be resolved correctly when using " + playPom) in {
       val pomPath = "test/samples/poms/" + playPom
       pomPath must beAnExistingPath
@@ -67,6 +68,8 @@ class ArtifactsTest extends Specification with MustMatchers {
       artifactsLogic.nbOfDeps must beEqualTo(38)
 
     }
+
+    ("be resolved correctly when using " + nettyPom) in todo //TODO: use netty to check if optional deps are correctly handled
   }
 
 }
