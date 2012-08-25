@@ -93,7 +93,7 @@ object Deputy {
       }))
 
     val ivy = {
-      val ivy = IvyContext.getContext.getIvy
+      val ivy = IvyContext.getContext.getIvy //TODO: is this right?
       ivy.configure(ivySettingsFile)
       ivy
     }

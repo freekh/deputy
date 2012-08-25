@@ -24,6 +24,8 @@ class ArtifactsActor(settings: IvySettings, executor: ActorRef, printerActor: Ac
     def createArtifacts(coord: Coord, dependentArt: Option[Artifact], transitive: Boolean): Unit = {
       coordsActor ! CreateArtifacts(coord, dependentArt, transitive)
     }
+
+    val location = { artifact: Artifact => artifact.artifact }
   }
 
   val artifactsLogic = new Artifacts(settings) with ActorArtifactsHandler
@@ -35,7 +37,9 @@ class ArtifactsActor(settings: IvySettings, executor: ActorRef, printerActor: Ac
       Executor.executeTask(executor) {
         artifactsLogic.depdenciesFor(artifact)
       }
-
+    }
+    case msg => {
+      Deputy.fail("Artifacts actor got a unexpected messsage: " + msg)
     }
   }
 }

@@ -14,13 +14,16 @@ trait ArtifactsHandler {
 }
 
 class Artifacts(settings: IvySettings) { handler: ArtifactsHandler =>
+  protected def location(a: Artifact) = a.artifact
+
   def depdenciesFor(artifact: Artifact) = {
-    val location = artifact.artifact
-    val urlOpt = location.flatMap { l =>
+
+    val urlOpt = location(artifact).flatMap { l =>
       if (l.startsWith("file")) {
-        val f = new File(l)
+        val url = new URL(l)
+        val f = new File(url.getFile)
         if (f.exists) {
-          Some(f.toURI.toURL)
+          Some(url)
         } else {
           None
         }
@@ -28,7 +31,7 @@ class Artifacts(settings: IvySettings) { handler: ArtifactsHandler =>
         Some(new URL(l))
       }
     }
-
+    println(urlOpt)
     urlOpt.foreach { artifactUrl =>
       val pomParser = PomModuleDescriptorParser.getInstance
       val pomDescr = pomParser.parseDescriptor(settings, artifactUrl, false)

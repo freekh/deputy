@@ -12,6 +12,7 @@ object Coord {
   }
 }
 
+//TODO: This should be called dependency
 case class Coord(moduleOrg: String, moduleName: String, revision: String) {
   import Coord._
   def format = moduleOrg + ivyCoordSep + moduleName + ivyCoordSep + revision

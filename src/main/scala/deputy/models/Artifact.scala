@@ -31,6 +31,7 @@ object Artifact {
   }
 }
 
+//TODO: This cannot be called artifact, and it should not have a field called "artifact"!!!!
 case class Artifact(coords: Option[Coord], artifact: Option[String], moduleType: Option[String], statusCode: Option[Int], resolvedFromArtifact: Option[String]) {
   import Artifact._
   def format = {
