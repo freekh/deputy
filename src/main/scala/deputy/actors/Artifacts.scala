@@ -17,12 +17,16 @@ import deputy.logic._
 class ArtifactsActor(settings: IvySettings, executor: ActorRef, printerActor: ActorRef, coordsActor: ActorRef) extends Actor {
 
   trait ActorArtifactsHandler extends ArtifactsHandler {
-    def dependenciesFound(nbOfDeps: Int): Unit = {
+    override def dependenciesFound(nbOfDeps: Int): Unit = {
       executor ! DependenciesFound(nbOfDeps)
     }
 
-    def createArtifacts(coord: Coord, dependentArt: Option[Artifact], transitive: Boolean): Unit = {
+    override def createArtifacts(coord: Coord, dependentArt: Option[Artifact], transitive: Boolean): Unit = {
       coordsActor ! CreateArtifacts(coord, dependentArt, transitive)
+    }
+
+    override def addExcludeRule(parent: Coord, id: String, excludeOrg: String, excludeNameOpt: Option[String]): Unit = {
+      executor ! Exclude(parent, id, excludeOrg, excludeNameOpt)
     }
 
     val location = { artifact: Artifact => artifact.artifact }
@@ -31,11 +35,11 @@ class ArtifactsActor(settings: IvySettings, executor: ActorRef, printerActor: Ac
   val artifactsLogic = new Artifacts(settings) with ActorArtifactsHandler
 
   def receive = {
-    case artifact: Artifact => {
+    case DependenciesFor(artifact, excludeRules) => {
       printerActor ! artifact
       Deputy.debug("depsFor:" + artifact)
       Executor.executeTask(executor) {
-        artifactsLogic.depdenciesFor(artifact)
+        artifactsLogic.depdenciesFor(artifact, excludeRules)
       }
     }
     case msg => {

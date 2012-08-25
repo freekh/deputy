@@ -30,7 +30,7 @@ class CoordsActor(settings: IvySettings, executor: ActorRef, printerActor: Actor
       //Deputy.debug("expanding:" + url)
       if (transitive) {
         //Deputy.debug("executorDeps:" + url)
-        executor ! DependenciesFor(artifact)
+        executor ! DependenciesFor(artifact, Seq.empty)
       }
     }
   }

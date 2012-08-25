@@ -16,6 +16,8 @@ class ArtifactsTest extends Specification with MustMatchers {
     //TODO: redesign this to not use vars?
     var nbOfDeps: Int
     var createdArtifactsMsgs: Seq[CreateArtifacts]
+    var excludes: Map[(Coord, Option[String]), Seq[(String, Option[String])]] = Map.empty
+
     def dependenciesFound(nbOfDeps: Int): Unit = {
       this.nbOfDeps += nbOfDeps
     }
@@ -23,6 +25,18 @@ class ArtifactsTest extends Specification with MustMatchers {
     def createArtifacts(coord: Coord, dependentArt: Option[Artifact], transitive: Boolean): Unit = {
       createdArtifactsMsgs = createdArtifactsMsgs :+ CreateArtifacts(coord, dependentArt, transitive)
     }
+
+    def addExcludeRule(parent: Coord, id: String, excludeOrg: String, excludeNameOpt: Option[String]): Unit = {
+      println(parent + " " + excludeOrg)
+      val key = parent -> Some(id)
+      val newExcludeRules = excludes.get(parent -> Some(id)).map { rules =>
+        rules :+ (excludeOrg, excludeNameOpt)
+      }.getOrElse {
+        Seq(excludeOrg -> excludeNameOpt)
+      }
+      excludes += key -> newExcludeRules
+    }
+
   }
 
   def settings(ivySettingsFile: File) = {
@@ -35,6 +49,7 @@ class ArtifactsTest extends Specification with MustMatchers {
     "be resolved correctly" in {
       val pomPath = "test/samples/poms/play.pom"
       pomPath must beAnExistingPath
+      val testLocation = Some((new File(pomPath)).toURI.toURL.toString)
 
       val settingsPath = "test/settings/local-settings.xml"
       settingsPath must beAnExistingPath
@@ -42,14 +57,15 @@ class ArtifactsTest extends Specification with MustMatchers {
       val artifactsLogic = new Artifacts(settings(new File(settingsPath))) with TestArtifactsHandler {
         override var nbOfDeps: Int = 0
         override var createdArtifactsMsgs: Seq[CreateArtifacts] = Seq.empty
-
-        override def location(a: Artifact) = Some((new File(pomPath)).toURI.toURL.toString)
+        override def location(a: Artifact) = testLocation
       }
 
       val dependentArtifact = None
-      artifactsLogic.depdenciesFor(Artifact(None, None, None, None, None)) //we have all None, because we override the location
+      artifactsLogic.depdenciesFor(Artifact(None, None, None, None, None), Seq.empty) //we have all None, because we override the location
+      artifactsLogic.excludes.get(Coord("org.reflections", "reflections", "0.9.6") -> testLocation) must beEqualTo(Some(Seq("com.google.guava" -> Some("guava"), "javassist" -> Some("javassist"))))
 
       artifactsLogic.nbOfDeps must beEqualTo(38)
+
     }
   }
 

@@ -18,7 +18,8 @@ case object CoordsCompleted extends ExecutorMsgs
 case object CoordsStarted extends ExecutorMsgs
 case object DepedencyResolved extends ExecutorMsgs
 case object Done extends ExecutorMsgs
-case class DependenciesFor(artifact: Artifact) extends ExecutorMsgs
+case class DependenciesFor(artifact: Artifact, excludeRules: Seq[(String, Option[String])]) extends ExecutorMsgs
+case class Exclude(parent: Coord, id: String, excludeOrg: String, excludeNameOpt: Option[String]) extends ExecutorMsgs
 
 object Executor {
   def executeTask(executor: ActorRef)(f: => Unit) = {
@@ -33,6 +34,7 @@ object Executor {
   }
 }
 
+//TODO: change name to forkjoiner?
 class Executor(settings: IvySettings) extends Actor {
   var dependenciesFound = 0
   var dependenciesResolved = 0
@@ -43,6 +45,8 @@ class Executor(settings: IvySettings) extends Actor {
 
   var initiator: ActorRef = null
   var coordsDeps = Vector.empty[Coord]
+
+  var excludes: Map[(Coord, Option[String]), Seq[(String, Option[String])]] = Map.empty
 
   val printerActor = context.actorOf(Props(new OrderedPrinterActor(Deputy.out)))
 
@@ -92,20 +96,25 @@ class Executor(settings: IvySettings) extends Actor {
       dependenciesResolved += 1
       redrawStatus
     }
-    case DependenciesFor(art) => {
-      //if (dependenciesResolved > dependenciesFound)
-      //System.err.println("too many deps when processing: " + art)
+    case Exclude(parent, id, excludeOrg, excludeNameOpt) => {
+      val key = parent -> Some(id)
+      val newExcludeRules = excludes.get(parent -> Some(id)).map { rules =>
+        rules :+ (excludeOrg, excludeNameOpt)
+      }.getOrElse {
+        Seq(excludeOrg -> excludeNameOpt)
+      }
+      excludes += key -> newExcludeRules
+    }
+    case DependenciesFor(art, _) => { //TODO: create new case class for this 
       art.coords.foreach { coord =>
-        val coordRefined = if (ignoreVersion) {
-          Coord(coord.moduleOrg, coord.moduleName, "")
-        } else {
-          coord
-        }
-        if (!coordsDeps.contains(coordRefined)) {
-          Deputy.debug("firstTime:" + coordRefined)
-          coordsDeps = coordsDeps :+ coordRefined
+        if (!coordsDeps.contains(coord)) {
+          Deputy.debug("firstTime:" + coord)
+          coordsDeps = coordsDeps :+ coord
           coordsStarted += 1
-          artifactsActor ! DependenciesFor(art)
+          val rules = excludes.get(coord -> art.artifact).getOrElse {
+            Seq.empty
+          }
+          artifactsActor ! DependenciesFor(art, rules)
         }
       }
       redrawStatus

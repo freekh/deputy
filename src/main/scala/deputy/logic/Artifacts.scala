@@ -11,55 +11,60 @@ import deputy.Deputy
 trait ArtifactsHandler {
   def dependenciesFound(nbOfDeps: Int): Unit
   def createArtifacts(coord: Coord, dependentArt: Option[Artifact], transitive: Boolean): Unit
+  def addExcludeRule(parent: Coord, id: String, excludeOrg: String, excludeNameOpt: Option[String]): Unit
 }
 
 class Artifacts(settings: IvySettings) { handler: ArtifactsHandler =>
   protected def location(a: Artifact) = a.artifact
 
-  def depdenciesFor(artifact: Artifact) = {
+  def depdenciesFor(artifact: Artifact, excludeRules: Seq[(String, Option[String])]) = {
 
     val urlOpt = location(artifact).flatMap { l =>
       if (l.startsWith("file")) {
         val url = new URL(l)
         val f = new File(url.getFile)
         if (f.exists) {
-          Some(url)
+          Some(l -> url)
         } else {
           None
         }
       } else {
-        Some(new URL(l))
+        Some(l -> new URL(l))
       }
     }
-    println(urlOpt)
-    urlOpt.foreach { artifactUrl =>
-      val pomParser = PomModuleDescriptorParser.getInstance
-      val pomDescr = pomParser.parseDescriptor(settings, artifactUrl, false)
+    urlOpt.foreach {
+      case (location, artifactUrl) =>
+        val pomParser = PomModuleDescriptorParser.getInstance
+        val pomDescr = pomParser.parseDescriptor(settings, artifactUrl, false)
 
-      val deps = pomDescr.getDependencies
+        val deps = pomDescr.getDependencies
 
-      handler.dependenciesFound(deps.size)
-      deps.map { depDescr =>
-        val dep = depDescr.getDependencyRevisionId
-
-        Deputy.debug(depDescr.getModuleConfigurations().toList.map(_.toString).toString)
-        val c = Coord(dep.getOrganisation, dep.getName, dep.getRevision)
-        val conf = depDescr.getModuleConfigurations()
-        val transitive = !conf.contains("optional") && (conf.contains("compile") || conf.contains("runtime")) //TODO: config
-        val excludeRules = depDescr.getExcludeRules(conf)
-        val excludeCoord = excludeRules.forall {
-          case r =>
-            r.getId().getModuleId().getName() == dep.getName &&
-              r.getId().getModuleId().getOrganisation == dep.getOrganisation
+        handler.dependenciesFound(deps.size)
+        val filteredDeps = deps.filter { depDescr =>
+          val dep = depDescr.getDependencyRevisionId
+          !excludeRules.contains(dep.getOrganisation -> Option(dep.getName))
         }
-        if (excludeCoord) {
+
+        filteredDeps.map { depDescr =>
+          val dep = depDescr.getDependencyRevisionId
+          val c = Coord(dep.getOrganisation, dep.getName, dep.getRevision)
+
+          val conf = depDescr.getModuleConfigurations()
+          val transitive = !conf.contains("optional") //TODO: config
+
+          val currentExcludeRules = depDescr.getExcludeRules(conf)
+          //TODO: add support for scopes 
+
+          println(currentExcludeRules.toList.map(_.getId.getModuleId.getName)) //TODO: REMOVE
+          //println(depDescr.getModuleConfigurations().map(_.toString).toList)
+          currentExcludeRules.map { rule =>
+            handler.addExcludeRule(c, location, rule.getId.getModuleId.getOrganisation, Some(rule.getId.getModuleId.getName))
+          }
+
           Deputy.debug("resolving:" + c)
           handler.createArtifacts(c, Some(artifact), transitive)
-        } else {
-          Deputy.debug("excluding: " + c)
-        }
 
-      }
+        }
     }
   }
 }

@@ -1,8 +1,0 @@
-<ivysettings>
-    <settings defaultResolver="typesafe"/>
-    <resolvers>
-        <filesystem name="local">
-            <artifact pattern="${ivy.local.default.artifact.pattern}"/>
-        </filesystem>
-    </resolvers>
-</ivysettings>
