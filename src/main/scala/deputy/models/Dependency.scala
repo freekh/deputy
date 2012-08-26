@@ -2,18 +2,18 @@ package deputy.models
 
 import deputy.expectedExceptions._
 
-object Coord {
+object Dependency {
   val ivyCoordSep = ":"
   val IvyCoordsRegExp = ("^(.*?)" + ivyCoordSep + "(.*?)" + ivyCoordSep + "(.*?)").r
 
   def parse(ivyCoords: String) = ivyCoords.trim match {
-    case IvyCoordsRegExp(moduleOrg, moduleName, version) => Coord(moduleOrg, moduleName, version)
+    case IvyCoordsRegExp(moduleOrg, moduleName, version) => Dependency(moduleOrg, moduleName, version)
     case _ => throw IvyCoordsParseException(ivyCoords.trim, IvyCoordsRegExp.toString)
   }
 }
 
 //TODO: This should be called dependency
-case class Coord(moduleOrg: String, moduleName: String, revision: String) {
-  import Coord._
+case class Dependency(moduleOrg: String, moduleName: String, revision: String) {
+  import Dependency._
   def format = moduleOrg + ivyCoordSep + moduleName + ivyCoordSep + revision
 }

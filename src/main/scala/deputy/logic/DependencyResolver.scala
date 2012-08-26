@@ -2,23 +2,23 @@ package deputy.logic
 
 import org.apache.ivy.plugins.version.VersionRangeMatcher
 import org.apache.ivy.core.settings.IvySettings
-import deputy.models.Artifact
 import org.apache.ivy.plugins.resolver.RepositoryResolver
 import org.apache.ivy.plugins.resolver.ChainResolver
-import deputy.models.Coord
 import java.util.Date
 import org.apache.ivy.core.module.id.ModuleRevisionId
 import org.apache.ivy.core.IvyPatternHelper
 import org.apache.ivy.core.module.descriptor.DefaultArtifact
 import org.apache.ivy.plugins.resolver.util.ResolverHelper
 import deputy.Deputy
+import deputy.models.ResolvedDep
+import deputy.models.Dependency
 
-trait CoordsHandler {
+trait DependencyResolverHandler {
   def dependencyResolved: Unit
-  def wrapUpWithArtifact(artifact: Artifact, transitive: Boolean): Unit
+  def printThenContinue(resolvedDep: ResolvedDep, transitive: Boolean): Unit
 }
 
-object Coords {
+object DependencyResolver {
   def acceptRevision(moduleOrg: String, moduleName: String, settings: IvySettings, a: String, b: String) = synchronized { //VersionRangeMatcher is not thread safe! I think we can live with synchronized since we are IO bound
     val vrm = new VersionRangeMatcher("range", settings.getDefaultLatestStrategy)
     vrm.accept(ModuleRevisionId.newInstance(moduleOrg, moduleName, a), ModuleRevisionId.newInstance(moduleOrg, moduleName, b))
@@ -30,7 +30,7 @@ object Coords {
   }
 }
 
-class Coords(settings: IvySettings) { handler: CoordsHandler => //TODO: rename Coords and all names like it to dependencies because that makes more sense to most people
+class DependencyResolver(settings: IvySettings) { handler: DependencyResolverHandler =>
 
   private def getRepositoryResolvers(resolvers: List[_]): List[RepositoryResolver] = {
     import scala.collection.JavaConversions._
@@ -42,8 +42,8 @@ class Coords(settings: IvySettings) { handler: CoordsHandler => //TODO: rename C
     }
   }
 
-  def createArtifacts(coord: Coord, scopes: List[String], dependentArtifactOpt: Option[Artifact], transitive: Boolean) = {
-    val Coord(moduleOrg, moduleName, revision) = coord
+  def resolveDependency(dep: Dependency, scopes: List[String], parent: Option[ResolvedDep], transitive: Boolean) = {
+    val Dependency(moduleOrg, moduleName, revision) = dep
     import scala.collection.JavaConversions._
     val pubDate = new Date() //???
     if (transitive) handler.dependencyResolved
@@ -66,7 +66,7 @@ class Coords(settings: IvySettings) { handler: CoordsHandler => //TODO: rename C
         .newInstance(module, IvyPatternHelper.getTokenString(IvyPatternHelper.REVISION_KEY)),
         artifact)
 
-      val possibleRevs = if (Coords.isDynamicVersion(moduleOrg, moduleName, settings, revision)) {
+      val possibleRevs = if (DependencyResolver.isDynamicVersion(moduleOrg, moduleName, settings, revision)) {
         ResolverHelper.listTokenValues(resolver.getRepository, partiallyResolvedPattern,
           IvyPatternHelper.REVISION_KEY)
       } else Array(revision)
@@ -78,13 +78,13 @@ class Coords(settings: IvySettings) { handler: CoordsHandler => //TODO: rename C
       }
 
       val arts = for {
-        currentRev <- revs.toList if !Coords.isDynamicVersion(moduleOrg, moduleName, settings, revision) || Coords.acceptRevision(moduleOrg, moduleName, settings, revision, currentRev)
+        currentRev <- revs.toList if !DependencyResolver.isDynamicVersion(moduleOrg, moduleName, settings, revision) || DependencyResolver.acceptRevision(moduleOrg, moduleName, settings, revision, currentRev)
       } yield {
         val url = IvyPatternHelper.substituteToken(partiallyResolvedPattern,
           IvyPatternHelper.REVISION_KEY, currentRev)
-        val c = Coord(moduleOrg, moduleName, currentRev)
-        val finalArt = Artifact(Some(c), Some(url), Some(moduleType), scopes, dependentArtifactOpt.flatMap(_.artifact))
-        handler.wrapUpWithArtifact(finalArt, transitive)
+        val newDep = Dependency(moduleOrg, moduleName, currentRev)
+        val resolvedDep = ResolvedDep(Some(newDep), Some(url), Some(moduleType), scopes, parent.flatMap(_.artifact))
+        handler.printThenContinue(resolvedDep, transitive)
       }
     }
   }

@@ -1,25 +1,25 @@
 package deputy.logic
 
-import deputy.models.Coord
-import deputy.models.Artifact
+import deputy.models.Dependency
+import deputy.models.ResolvedDep
 import org.apache.ivy.core.settings.IvySettings
 import java.io.File
 import java.net.URL
 import org.apache.ivy.plugins.parser.m2.PomModuleDescriptorParser
 import deputy.Deputy
 
-trait ArtifactsHandler {
+trait DependencyExtractorHandler {
   def dependenciesFound(nbOfDeps: Int): Unit
-  def createArtifacts(coord: Coord, scopes: List[String], dependentArt: Option[Artifact], transitive: Boolean): Unit
-  def addExcludeRule(parent: Coord, id: String, excludeOrg: String, excludeNameOpt: Option[String]): Unit
+  def resolveDependency(dep: Dependency, scopes: List[String], dependentArt: Option[ResolvedDep], transitive: Boolean): Unit
+  def addExcludeRule(parent: Dependency, id: String, excludeOrg: String, excludeNameOpt: Option[String]): Unit
 }
 
-class Artifacts(settings: IvySettings) { handler: ArtifactsHandler =>
-  protected def location(a: Artifact) = a.artifact
+class DependencyExtractor(settings: IvySettings) { handler: DependencyExtractorHandler =>
+  protected def location(a: ResolvedDep) = a.artifact
 
-  def depdenciesFor(artifact: Artifact, excludeRules: Seq[(String, Option[String])]) = {
+  def dependenciesFor(parent: ResolvedDep, excludeRules: Seq[(String, Option[String])]) = {
 
-    val urlOpt = location(artifact).flatMap { l =>
+    val urlOpt = location(parent).flatMap { l =>
       if (l.startsWith("file")) {
         val url = new URL(l)
         val f = new File(url.getFile)
@@ -33,9 +33,9 @@ class Artifacts(settings: IvySettings) { handler: ArtifactsHandler =>
       }
     }
     urlOpt.foreach {
-      case (location, artifactUrl) =>
+      case (location, resolvedDepUrl) =>
         val pomParser = PomModuleDescriptorParser.getInstance
-        val pomDescr = pomParser.parseDescriptor(settings, artifactUrl, false)
+        val pomDescr = pomParser.parseDescriptor(settings, resolvedDepUrl, false)
 
         val deps = pomDescr.getDependencies
 
@@ -47,22 +47,22 @@ class Artifacts(settings: IvySettings) { handler: ArtifactsHandler =>
 
         filteredDeps.map { depDescr =>
           val dep = depDescr.getDependencyRevisionId
-          val c = Coord(dep.getOrganisation, dep.getName, dep.getRevision)
+          val newDep = Dependency(dep.getOrganisation, dep.getName, dep.getRevision)
 
           val conf = depDescr.getModuleConfigurations()
           val optional = conf.contains("optional") //TODO: config
-          println(optional + " - " + conf.toList + "    >>  " + c)
+          println(optional + " - " + conf.toList + "    >>  " + newDep)
           if (!optional) {
             val currentExcludeRules = depDescr.getExcludeRules(conf)
             val scopes = conf.toList.map(_.toString)
 
             currentExcludeRules.map { rule =>
-              handler.addExcludeRule(c, location, rule.getId.getModuleId.getOrganisation, Some(rule.getId.getModuleId.getName))
+              handler.addExcludeRule(newDep, location, rule.getId.getModuleId.getOrganisation, Some(rule.getId.getModuleId.getName))
             }
-            Deputy.debug("resolving:" + c)
-            handler.createArtifacts(c, scopes, Some(artifact), true)
+            Deputy.debug("resolving:" + newDep)
+            handler.resolveDependency(newDep, scopes, Some(parent), true)
           } else {
-            Deputy.debug("skipping: " + c + " because optional")
+            Deputy.debug("skipping: " + newDep + " because optional")
 
           }
 

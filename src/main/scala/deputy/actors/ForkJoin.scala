@@ -2,26 +2,25 @@ package deputy.actors
 
 import akka.actor.Actor
 import akka.actor.Props
-import akka.routing.RoundRobinRouter
+import akka.routing.SmallestMailboxRouter
 import org.apache.ivy.core.settings.IvySettings
 import akka.actor.ActorRef
 import deputy.Deputy
-import deputy.models.Artifact
-import deputy.models.Coord
-import deputy.models.Coord
+import deputy.models.ResolvedDep
+import deputy.models.Dependency
 
-sealed trait ExecutorMsgs
-case class CoordsWithResolvers(lines: List[String]) extends ExecutorMsgs
-case class Explode(lines: List[String]) extends ExecutorMsgs
-case class DependenciesFound(i: Int) extends ExecutorMsgs
-case object CoordsCompleted extends ExecutorMsgs
-case object CoordsStarted extends ExecutorMsgs
-case object DepedencyResolved extends ExecutorMsgs
-case object Done extends ExecutorMsgs
-case class DependenciesFor(artifact: Artifact, excludeRules: Seq[(String, Option[String])]) extends ExecutorMsgs
-case class Exclude(parent: Coord, id: String, excludeOrg: String, excludeNameOpt: Option[String]) extends ExecutorMsgs
+sealed trait ForkJoinMsgs
+case class CoordsWithResolvers(lines: List[String]) extends ForkJoinMsgs
+case class Explode(lines: List[String]) extends ForkJoinMsgs
+case class DependenciesFound(i: Int) extends ForkJoinMsgs
+case object CoordsCompleted extends ForkJoinMsgs
+case object CoordsStarted extends ForkJoinMsgs
+case object DepedencyResolved extends ForkJoinMsgs
+case object Done extends ForkJoinMsgs
+case class DependenciesFor(resolvedDep: ResolvedDep, excludeRules: Seq[(String, Option[String])]) extends ForkJoinMsgs
+case class Exclude(parent: Dependency, id: String, excludeOrg: String, excludeNameOpt: Option[String]) extends ForkJoinMsgs
 
-object Executor {
+object ForkJoinHelper {
   def executeTask(executor: ActorRef)(f: => Unit) = {
     try {
       executor ! CoordsStarted
@@ -34,8 +33,7 @@ object Executor {
   }
 }
 
-//TODO: change name to forkjoiner?
-class Executor(settings: IvySettings) extends Actor {
+class ForkJoinActor(settings: IvySettings) extends Actor {
   var dependenciesFound = 0
   var dependenciesResolved = 0
   var levelsOfDeps = 0
@@ -44,15 +42,13 @@ class Executor(settings: IvySettings) extends Actor {
   var errors = 0
 
   var initiator: ActorRef = null
-  var coordsDeps = Vector.empty[Coord]
+  var resolvedDeps = Vector.empty[Dependency]
 
-  var excludes: Map[(Coord, Option[String]), Seq[(String, Option[String])]] = Map.empty
+  var excludes: Map[(Dependency, Option[String]), Seq[(String, Option[String])]] = Map.empty
 
-  val printerActor = context.actorOf(Props(new OrderedPrinterActor(Deputy.out)))
+  val printerActor = context.actorOf(Props(new PrinterActor(Deputy.out)))
 
-  val coordsActor = context.actorOf(Props(new CoordsActor(settings, self, printerActor)).withRouter(RoundRobinRouter(nrOfInstances = 1)))
-
-  val artifactsActor = context.actorOf(Props(new ArtifactsActor(settings, self, printerActor, coordsActor)).withRouter(RoundRobinRouter(nrOfInstances = 1)))
+  val dependencyActors = context.actorOf(Props(new DependencyActor(settings, self, printerActor)).withRouter(SmallestMailboxRouter(nrOfInstances = 10))) //TODO: 10 is random, perhaps we should have a IO Router or something?
 
   val ignoreVersion = false
 
@@ -65,7 +61,7 @@ class Executor(settings: IvySettings) extends Actor {
       dependenciesResolved,
       dependenciesFound,
       levelsOfDeps,
-      coordsDeps.size,
+      resolvedDeps.size,
       errors)
     Deputy.progress(lastLine)
     Deputy.progress("\r")
@@ -83,14 +79,17 @@ class Executor(settings: IvySettings) extends Actor {
     case CoordsWithResolvers(lines) => {
       initiator = sender
       lines.foreach { l =>
-        coordsActor ! Coord.parse(l)
+        dependencyActors ! Dependency.parse(l)
       }
     }
     case Explode(lines) => {
       initiator = sender
       lines.foreach { l =>
-        artifactsActor ! Artifact.parse(l)
+        dependencyActors ! ResolvedDep.parse(l)
       }
+    }
+    case rd @ ResolveDep(dep, scopes, parent, transitive) => {
+      dependencyActors ! rd
     }
     case DepedencyResolved => {
       dependenciesResolved += 1
@@ -105,16 +104,16 @@ class Executor(settings: IvySettings) extends Actor {
       }
       excludes += key -> newExcludeRules
     }
-    case DependenciesFor(art, _) => { //TODO: create new case class for this 
-      art.coords.foreach { coord =>
-        if (!coordsDeps.contains(coord)) {
-          Deputy.debug("firstTime:" + coord)
-          coordsDeps = coordsDeps :+ coord
+    case DependenciesFor(current, _) => { //TODO: create new case class for this 
+      current.dep.foreach { dep =>
+        if (!resolvedDeps.contains(dep)) {
+          Deputy.debug("firstTime:" + dep)
+          resolvedDeps = resolvedDeps :+ dep
           coordsStarted += 1
-          val rules = excludes.get(coord -> art.artifact).getOrElse {
+          val rules = excludes.get(dep -> current.parent).getOrElse {
             Seq.empty
           }
-          artifactsActor ! DependenciesFor(art, rules)
+          dependencyActors ! DependenciesFor(current, rules)
         }
       }
       redrawStatus
@@ -138,7 +137,7 @@ class Executor(settings: IvySettings) extends Actor {
       redrawAndcheckIfFinished
     }
     case u => {
-      Deputy.debug("Got unexpected message : " + u)
+      Deputy.fail("Got unexpected message : " + u)
     }
   }
 

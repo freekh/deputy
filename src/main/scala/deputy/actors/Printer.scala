@@ -2,16 +2,11 @@ package deputy.actors
 
 import akka.actor.Actor
 import java.io.PrintStream
-import deputy.models.Artifact
+import deputy.models.ResolvedDep
 
-/**
- * Prints an artifact iif it does NOT depend on anything not YET printed
- */
-class OrderedPrinterActor(out: PrintStream) extends Actor {
-  val printedArtifacts = Vector.empty[Artifact]
-
+class PrinterActor(out: PrintStream) extends Actor {
   def receive = {
-    case a: Artifact => //TODO: fill 
-      out.println(a.format)
+    case rd: ResolvedDep => //TODO: fill 
+      out.println(rd.format)
   }
 }

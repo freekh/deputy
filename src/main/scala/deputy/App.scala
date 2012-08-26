@@ -14,9 +14,9 @@ import java.io.OutputStream
 import java.io.PrintStream
 import org.apache.ivy.core.IvyContext
 import deputy.actors.CoordsWithResolvers
-import deputy.actors.Executor
 import deputy.actors.Explode
 import scala.annotation.tailrec
+import deputy.actors.ForkJoinActor
 
 /** The launched conscript entry point */
 class App extends xsbti.AppMain {
@@ -99,7 +99,7 @@ object Deputy {
     }
 
     val actorSystem = ActorSystem("deputy")
-    val executor = actorSystem.actorOf(Props(new Executor(ivy.getSettings)))
+    val executor = actorSystem.actorOf(Props(new ForkJoinActor(ivy.getSettings)))
 
     val res = args.headOption.map(command => {
       if (command == resolverCommand) {
