@@ -10,7 +10,7 @@ import deputy.models.ResolvedDep
 import deputy.models.Dependency
 
 sealed trait ForkJoinMsgs
-case class CoordsWithResolvers(lines: List[String]) extends ForkJoinMsgs
+case class DependencyWithResolvers(lines: List[String]) extends ForkJoinMsgs
 case class Explode(lines: List[String]) extends ForkJoinMsgs
 case class DependenciesFound(i: Int) extends ForkJoinMsgs
 case object CoordsCompleted extends ForkJoinMsgs
@@ -48,7 +48,7 @@ class ForkJoinActor(settings: IvySettings) extends Actor {
 
   val printerActor = context.actorOf(Props(new PrinterActor(Deputy.out)))
 
-  val dependencyActors = context.actorOf(Props(new DependencyActor(settings, self, printerActor)).withRouter(SmallestMailboxRouter(nrOfInstances = 10))) //TODO: 10 is random, perhaps we should have a IO Router or something?
+  val dependencyActors = context.actorOf(Props(new DependencyActor(settings, self, printerActor)).withRouter(SmallestMailboxRouter(nrOfInstances = 1))) //TODO: 10 is random, perhaps we should have a IO Router or something?
 
   val ignoreVersion = false
 
@@ -76,16 +76,18 @@ class ForkJoinActor(settings: IvySettings) extends Actor {
   }
 
   def receive = {
-    case CoordsWithResolvers(lines) => {
+    case DependencyWithResolvers(lines) => {
       initiator = sender
       lines.foreach { l =>
-        dependencyActors ! Dependency.parse(l)
+        dependencyActors ! ResolveDep(Dependency.parse(l), List.empty, None, false)
       }
     }
     case Explode(lines) => {
       initiator = sender
       lines.foreach { l =>
-        dependencyActors ! ResolvedDep.parse(l)
+        val rd = ResolvedDep.parse(l)
+        printerActor ! rd
+        dependencyActors ! DependenciesFor(rd, List.empty)
       }
     }
     case rd @ ResolveDep(dep, scopes, parent, transitive) => {
@@ -110,7 +112,7 @@ class ForkJoinActor(settings: IvySettings) extends Actor {
           Deputy.debug("firstTime:" + dep)
           resolvedDeps = resolvedDeps :+ dep
           coordsStarted += 1
-          val rules = excludes.get(dep -> current.parent).getOrElse {
+          val rules = excludes.get(dep -> current.resolvedFromArtifact).getOrElse {
             Seq.empty
           }
           dependencyActors ! DependenciesFor(current, rules)
@@ -133,6 +135,7 @@ class ForkJoinActor(settings: IvySettings) extends Actor {
 
     case e: Exception => {
       Deputy.debug("Got exception : " + e)
+      System.err.println("Got exception : " + e)
       errors += 1
       redrawAndcheckIfFinished
     }

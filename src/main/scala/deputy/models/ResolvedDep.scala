@@ -25,14 +25,14 @@ object ResolvedDep {
   }
 }
 
-case class ResolvedDep(dep: Option[Dependency], artifact: Option[String], moduleType: Option[String], scopes: List[String], parent: Option[String]) {
+case class ResolvedDep(dep: Option[Dependency], artifact: Option[String], moduleType: Option[String], scopes: List[String], resolvedFromArtifact: Option[String]) {
   import ResolvedDep._
   def format = {
     val depStr = dep.map(_.format).getOrElse { "" }
     val artifactStr = artifact.getOrElse { "" }
     val moduleTypeStr = moduleType.getOrElse { "" }
     val scopesStr = scopes.mkString(",")
-    val resolvedFromArtifactStr = dep.getOrElse { "" }
+    val resolvedFromArtifactStr = resolvedFromArtifact.getOrElse { "" }
     depStr + sep + artifactStr + sep + moduleTypeStr + sep + scopesStr + sep + resolvedFromArtifactStr + sep
   }
 }

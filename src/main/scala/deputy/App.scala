@@ -13,10 +13,10 @@ import java.io.InputStreamReader
 import java.io.OutputStream
 import java.io.PrintStream
 import org.apache.ivy.core.IvyContext
-import deputy.actors.CoordsWithResolvers
 import deputy.actors.Explode
 import scala.annotation.tailrec
 import deputy.actors.ForkJoinActor
+import deputy.actors.DependencyWithResolvers
 
 /** The launched conscript entry point */
 class App extends xsbti.AppMain {
@@ -53,7 +53,6 @@ object Deputy {
    * returns the process status code
    */
   def run(args: Array[String]): Int = {
-    //  echo "org.apache.ivy:ivy:2.2.20" | deputy with-resolvers /file/ivy-settings.xml | deputy check --keep-all | deputy explode |  deputy download --format="test/[mavenorg]" /directory  # or grep jar | cut -d '|' -f 3 | xargs curl 
 
     if (args.contains("--version")) {
       println("0.1.3") //TOOD: git hook
@@ -68,8 +67,8 @@ object Deputy {
       else lines
     }
 
-    val availableCommands = List("coords-artifacts", "artifacts-resolve", "artifacts-transitive", "artifacts-results")
-    val List(resolverCommand, checkCommand, explodeCommand, resultsCommand) = availableCommands
+    val availableCommands = List("deps-resolved", "resolved-check", "resolved-transitive", "resolved-results")
+    val List(resolveCommand, checkCommand, explodeCommand, resultsCommand) = availableCommands
 
     val ivySettingsPath = args.find(_ == "ivy-settings").flatMap { ivySettingsParam =>
       if (args.size > args.indexOf(ivySettingsParam))
@@ -102,8 +101,8 @@ object Deputy {
     val executor = actorSystem.actorOf(Props(new ForkJoinActor(ivy.getSettings)))
 
     val res = args.headOption.map(command => {
-      if (command == resolverCommand) {
-        Await.result(Patterns.ask(executor, CoordsWithResolvers(commandLineLoop(List())), Duration.parse("5 minutes")), Duration.parse("5 minutes"))
+      if (command == resolveCommand) {
+        Await.result(Patterns.ask(executor, DependencyWithResolvers(commandLineLoop(List())), Duration.parse("5 minutes")), Duration.parse("5 minutes")) //TODO: make configurable
         0
       } else if (command == explodeCommand) {
         Await.result(Patterns.ask(executor, Explode(commandLineLoop(List())), Duration.parse("5 minutes")), Duration.parse("5 minutes"))

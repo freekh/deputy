@@ -15,7 +15,7 @@ trait DependencyExtractorHandler {
 }
 
 class DependencyExtractor(settings: IvySettings) { handler: DependencyExtractorHandler =>
-  protected def location(a: ResolvedDep) = a.artifact
+  protected def location(a: ResolvedDep) = a.artifact //protected for testing purposes
 
   def dependenciesFor(parent: ResolvedDep, excludeRules: Seq[(String, Option[String])]) = {
 

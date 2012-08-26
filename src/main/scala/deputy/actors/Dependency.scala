@@ -52,10 +52,10 @@ class DependencyActor(settings: IvySettings, executor: ActorRef, printerActor: A
   val depResolver = new DependencyResolver(settings: IvySettings) with ActorDependencyResolverHandler
 
   def receive = {
-    case DependenciesFor(artifact, excludeRules) => {
-      Deputy.debug("depsFor:" + artifact)
+    case DependenciesFor(rd, excludeRules) => {
+      Deputy.debug("depsFor:" + rd)
       ForkJoinHelper.executeTask(executor) {
-        depExtractor.dependenciesFor(artifact, excludeRules)
+        depExtractor.dependenciesFor(rd, excludeRules)
       }
     }
     case ResolveDep(dep @ Dependency(moduleOrg, moduleName, revision), scopes, parent, transitive) => {
@@ -64,7 +64,7 @@ class DependencyActor(settings: IvySettings, executor: ActorRef, printerActor: A
       }
     }
     case msg => {
-      Deputy.fail("Artifacts actor got a unexpected messsage: " + msg)
+      Deputy.fail("Dependency actor got a unexpected messsage: " + msg + ". This might mean that the current build of deputy is broken - please file a bug with this error msg")
     }
   }
 }
