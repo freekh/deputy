@@ -21,8 +21,8 @@ class ArtifactsActor(settings: IvySettings, executor: ActorRef, printerActor: Ac
       executor ! DependenciesFound(nbOfDeps)
     }
 
-    override def createArtifacts(coord: Coord, dependentArt: Option[Artifact], transitive: Boolean): Unit = {
-      coordsActor ! CreateArtifacts(coord, dependentArt, transitive)
+    override def createArtifacts(coord: Coord, scopes: List[String], dependentArt: Option[Artifact], transitive: Boolean): Unit = {
+      coordsActor ! CreateArtifacts(coord, scopes, dependentArt, transitive)
     }
 
     override def addExcludeRule(parent: Coord, id: String, excludeOrg: String, excludeNameOpt: Option[String]): Unit = {

@@ -10,7 +10,7 @@ import deputy.Deputy
 
 trait ArtifactsHandler {
   def dependenciesFound(nbOfDeps: Int): Unit
-  def createArtifacts(coord: Coord, dependentArt: Option[Artifact], transitive: Boolean): Unit
+  def createArtifacts(coord: Coord, scopes: List[String], dependentArt: Option[Artifact], transitive: Boolean): Unit
   def addExcludeRule(parent: Coord, id: String, excludeOrg: String, excludeNameOpt: Option[String]): Unit
 }
 
@@ -50,17 +50,21 @@ class Artifacts(settings: IvySettings) { handler: ArtifactsHandler =>
           val c = Coord(dep.getOrganisation, dep.getName, dep.getRevision)
 
           val conf = depDescr.getModuleConfigurations()
-          val transitive = !conf.contains("optional") //TODO: config
+          val optional = conf.contains("optional") //TODO: config
+          println(optional + " - " + conf.toList + "    >>  " + c)
+          if (!optional) {
+            val currentExcludeRules = depDescr.getExcludeRules(conf)
+            val scopes = conf.toList.map(_.toString)
 
-          val currentExcludeRules = depDescr.getExcludeRules(conf)
-          //TODO: add support for scopes 
+            currentExcludeRules.map { rule =>
+              handler.addExcludeRule(c, location, rule.getId.getModuleId.getOrganisation, Some(rule.getId.getModuleId.getName))
+            }
+            Deputy.debug("resolving:" + c)
+            handler.createArtifacts(c, scopes, Some(artifact), true)
+          } else {
+            Deputy.debug("skipping: " + c + " because optional")
 
-          currentExcludeRules.map { rule =>
-            handler.addExcludeRule(c, location, rule.getId.getModuleId.getOrganisation, Some(rule.getId.getModuleId.getName))
           }
-
-          Deputy.debug("resolving:" + c)
-          handler.createArtifacts(c, Some(artifact), transitive)
 
         }
     }

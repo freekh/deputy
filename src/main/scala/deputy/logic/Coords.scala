@@ -42,7 +42,7 @@ class Coords(settings: IvySettings) { handler: CoordsHandler => //TODO: rename C
     }
   }
 
-  def createArtifacts(coord: Coord, dependentArtifactOpt: Option[Artifact], transitive: Boolean) = {
+  def createArtifacts(coord: Coord, scopes: List[String], dependentArtifactOpt: Option[Artifact], transitive: Boolean) = {
     val Coord(moduleOrg, moduleName, revision) = coord
     import scala.collection.JavaConversions._
     val pubDate = new Date() //???
@@ -83,7 +83,7 @@ class Coords(settings: IvySettings) { handler: CoordsHandler => //TODO: rename C
         val url = IvyPatternHelper.substituteToken(partiallyResolvedPattern,
           IvyPatternHelper.REVISION_KEY, currentRev)
         val c = Coord(moduleOrg, moduleName, currentRev)
-        val finalArt = Artifact(Some(c), Some(url), Some(moduleType), None, dependentArtifactOpt.flatMap(_.artifact))
+        val finalArt = Artifact(Some(c), Some(url), Some(moduleType), scopes, dependentArtifactOpt.flatMap(_.artifact))
         handler.wrapUpWithArtifact(finalArt, transitive)
       }
     }

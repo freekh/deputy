@@ -16,7 +16,7 @@ import akka.actor.ActorRef
 import deputy.Deputy
 import deputy.logic._
 
-case class CreateArtifacts(coords: Coord, dependentArtifactOpt: Option[Artifact], transitive: Boolean)
+case class CreateArtifacts(coords: Coord, scopes: List[String], dependentArtifactOpt: Option[Artifact], transitive: Boolean)
 
 class CoordsActor(settings: IvySettings, executor: ActorRef, printerActor: ActorRef) extends Actor {
 
@@ -38,9 +38,9 @@ class CoordsActor(settings: IvySettings, executor: ActorRef, printerActor: Actor
   val coordsLogic = new Coords(settings: IvySettings) with ActorCoordsHandler
 
   def receive = {
-    case CreateArtifacts(coord @ Coord(moduleOrg, moduleName, revision), dependentArtifactOpt, transitive) => {
+    case CreateArtifacts(coord @ Coord(moduleOrg, moduleName, revision), scopes, dependentArtifactOpt, transitive) => {
       Executor.executeTask(executor) {
-        coordsLogic.createArtifacts(coord, dependentArtifactOpt, transitive)
+        coordsLogic.createArtifacts(coord, scopes, dependentArtifactOpt, transitive)
       }
 
     }
