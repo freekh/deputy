@@ -1,22 +1,12 @@
 package deputy
 
-import akka.actor.ActorSystem
-import akka.actor.Props
-import akka.dispatch.Await
-import akka.pattern.Patterns
-import akka.util.Timeout.durationToTimeout
-import akka.util.Duration
-import dispatch.Http
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
 import java.io.OutputStream
 import java.io.PrintStream
 import org.apache.ivy.core.IvyContext
-import deputy.actors.Explode
 import scala.annotation.tailrec
-import deputy.actors.ForkJoinActor
-import deputy.actors.DependencyWithResolvers
 
 /** The launched conscript entry point */
 class App extends xsbti.AppMain {
@@ -46,6 +36,7 @@ object Deputy {
   def fail(s: String) = {
     System.err.println(s)
     if (exitOnFail) System.exit(-1)
+    throw new Exception() //return type
   }
 
   /**
@@ -70,11 +61,11 @@ object Deputy {
     val availableCommands = List("deps-resolved", "resolved-check", "resolved-transitive", "resolved-results")
     val List(resolveCommand, checkCommand, explodeCommand, resultsCommand) = availableCommands
 
-    val ivySettingsPath = args.find(_ == "ivy-settings").flatMap { ivySettingsParam =>
-      if (args.size > args.indexOf(ivySettingsParam))
-        Some(args(args.indexOf(ivySettingsParam)))
-      else
-        None
+    var foundArgs = List.empty[String]
+
+    val ivySettingsPath = args.find(_.startsWith("--ivy-settings=")).flatMap { param =>
+      foundArgs = param +: foundArgs
+      Some(param.split("--ivy-settings=")(1))
     }.getOrElse {
       "ivy-settings.xml" //TODO: different default?
     }
@@ -83,13 +74,18 @@ object Deputy {
       System.err.println("Cannot find ivy settings xml file in path: " + ivySettingsPath + " ...") //TODO: throw expectedexception instead?
       System.exit(-1)
     }
+    val resolverName = args.find(_.startsWith("--resolver=")).map { param =>
+      foundArgs = param +: foundArgs
+      param.split("--resolver=")(1)
+    }
 
     //WARNING THIS WILL DISABLE write to System.out
     lazy val disableOut = true
     if (disableOut)
-      System.setOut(new PrintStream(new OutputStream() {
-        override def write(b: Int) = {}
-      }))
+      Deputy.debug("DISABLING SYSTEM.OUT")
+    System.setOut(new PrintStream(new OutputStream() {
+      override def write(b: Int) = {}
+    }))
 
     val ivy = {
       val ivy = IvyContext.getContext.getIvy //TODO: is this right?
@@ -97,15 +93,14 @@ object Deputy {
       ivy
     }
 
-    val actorSystem = ActorSystem("deputy")
-    val executor = actorSystem.actorOf(Props(new ForkJoinActor(ivy.getSettings)))
+    val forkJoiner = new ForkJoiner(ivy.getSettings)
 
-    val res = args.headOption.map(command => {
+    val res = args.diff(foundArgs).headOption.map(command => {
       if (command == resolveCommand) {
-        Await.result(Patterns.ask(executor, DependencyWithResolvers(commandLineLoop(List())), Duration.parse("5 minutes")), Duration.parse("5 minutes")) //TODO: make configurable
+        forkJoiner.resolveDependencies(commandLineLoop(List()))
         0
       } else if (command == explodeCommand) {
-        Await.result(Patterns.ask(executor, Explode(commandLineLoop(List())), Duration.parse("5 minutes")), Duration.parse("5 minutes"))
+        forkJoiner.findDependencies(commandLineLoop(List()), resolverName)
         //Thread.sleep(40000)
         0
       } else {
@@ -116,8 +111,7 @@ object Deputy {
       System.err.println("Provide a command!") //TODO:
       -1
     }
-    Http.shutdown
-    actorSystem.shutdown
+    //Http.shutdown
     res
   }
   /** Standard runnable class entrypoint */

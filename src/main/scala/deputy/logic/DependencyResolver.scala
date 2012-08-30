@@ -13,11 +13,6 @@ import deputy.Deputy
 import deputy.models.ResolvedDep
 import deputy.models.Dependency
 
-trait DependencyResolverHandler {
-  def dependencyResolved: Unit
-  def printThenContinue(resolvedDep: ResolvedDep, transitive: Boolean): Unit
-}
-
 object DependencyResolver {
   def acceptRevision(moduleOrg: String, moduleName: String, settings: IvySettings, a: String, b: String) = synchronized { //VersionRangeMatcher is not thread safe! I think we can live with synchronized since we are IO bound
     val vrm = new VersionRangeMatcher("range", settings.getDefaultLatestStrategy)
@@ -30,8 +25,7 @@ object DependencyResolver {
   }
 }
 
-class DependencyResolver(settings: IvySettings) { handler: DependencyResolverHandler =>
-
+class DependencyResolver(settings: IvySettings) {
   private def getRepositoryResolvers(resolvers: List[_]): List[RepositoryResolver] = {
     import scala.collection.JavaConversions._
     resolvers flatMap { //TODO: @tailrec
@@ -42,25 +36,34 @@ class DependencyResolver(settings: IvySettings) { handler: DependencyResolverHan
     }
   }
 
-  def resolveDependency(dep: Dependency, scopes: List[String], parent: Option[ResolvedDep], transitive: Boolean) = {
-    val Dependency(moduleOrg, moduleName, revision) = dep
+  def resolveDependency(dep: Dependency, scopes: List[String], parentPath: Option[String], resolverName: Option[String]) = {
+    import deputy.Constants._
     import scala.collection.JavaConversions._
-    val pubDate = new Date() //???
-    if (transitive) handler.dependencyResolved
-    val printedArts = for {
-      resolver <- getRepositoryResolvers(settings.getResolvers.toList).distinct if resolver.getName == "typesafe"
-      pattern <- resolver.getIvyPatterns.map(_.toString)
-      isIvy = !resolver.isM2compatible
-    } yield {
-      //sender ! PatternFound
-      val moduleType = if (isIvy) "ivy" else "pom" //TODO: use DynamicTypes.ivy, ...
 
-      val (module, artifact) = if (isIvy) {
-        val ivyModule = ModuleRevisionId.newInstance(moduleOrg, moduleName, revision)
-        ivyModule -> DefaultArtifact.newIvyArtifact(ivyModule, pubDate)
-      } else {
+    def useResolver(rn: String) = {
+      resolverName.map { crn =>
+        crn == rn
+      }.getOrElse {
+        true
+      }
+    }
+
+    val Dependency(moduleOrg, moduleName, revision) = dep
+    val pubDate = new Date() //???
+
+    val resolvedDeps = for {
+      resolver <- getRepositoryResolvers(settings.getResolvers.toList).distinct if useResolver(resolver.getName)
+      pattern <- resolver.getIvyPatterns.map(_.toString)
+      isPom = resolver.isM2compatible
+    } yield {
+      val moduleType = if (isPom) DependencyTypes.pom else DependencyTypes.ivy
+
+      val (module, artifact) = if (isPom) {
         val pomModule = ModuleRevisionId.newInstance(moduleOrg.replace(".", "/"), moduleName, revision)
         pomModule -> DefaultArtifact.newPomArtifact(pomModule, pubDate)
+      } else {
+        val ivyModule = ModuleRevisionId.newInstance(moduleOrg, moduleName, revision)
+        ivyModule -> DefaultArtifact.newIvyArtifact(ivyModule, pubDate)
       }
       val partiallyResolvedPattern = IvyPatternHelper.substitute(pattern, ModuleRevisionId
         .newInstance(module, IvyPatternHelper.getTokenString(IvyPatternHelper.REVISION_KEY)),
@@ -77,15 +80,15 @@ class DependencyResolver(settings: IvySettings) { handler: DependencyResolverHan
         possibleRevs.toList
       }
 
-      val arts = for {
+      for {
         currentRev <- revs.toList if !DependencyResolver.isDynamicVersion(moduleOrg, moduleName, settings, revision) || DependencyResolver.acceptRevision(moduleOrg, moduleName, settings, revision, currentRev)
       } yield {
-        val url = IvyPatternHelper.substituteToken(partiallyResolvedPattern,
+        val path = IvyPatternHelper.substituteToken(partiallyResolvedPattern,
           IvyPatternHelper.REVISION_KEY, currentRev)
         val newDep = Dependency(moduleOrg, moduleName, currentRev)
-        val resolvedDep = ResolvedDep(Some(newDep), Some(url), Some(moduleType), scopes, parent.flatMap(_.artifact))
-        handler.printThenContinue(resolvedDep, transitive)
+        ResolvedDep(newDep, moduleType, resolver.getName, scopes, path, parentPath)
       }
     }
+    resolvedDeps.flatten
   }
 }
