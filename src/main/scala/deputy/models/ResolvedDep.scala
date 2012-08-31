@@ -7,7 +7,7 @@ object ResolvedDep {
   val escapedSep = "\\|"
 
   def parse(s: String): ResolvedDep = {
-    val FormatExpr = ("^(.*?)" + escapedSep + "(.*?)" + escapedSep + "(.*?)" + escapedSep + "(\\d*?)" + escapedSep + "(.*?)" + escapedSep + "(.*?)" + escapedSep + "$").r
+    val FormatExpr = ("^(.*?)" + escapedSep + "(.*?)" + escapedSep + "(.*?)" + escapedSep + "(.*?)" + escapedSep + "(.*?)" + escapedSep + "(.*?)" + escapedSep + "$").r
     s match {
       case FormatExpr(depStr, moduleType, resolverName, scopesStr, path, resolvedFromArtifactStr) => {
 
