@@ -61,10 +61,7 @@ object Deputy {
     val availableCommands = List("deps-resolved", "resolved-check", "resolved-transitive", "resolved-results")
     val List(resolveCommand, checkCommand, explodeCommand, resultsCommand) = availableCommands
 
-    var foundArgs = List.empty[String]
-
     val ivySettingsPath = args.find(_.startsWith("--ivy-settings=")).flatMap { param =>
-      foundArgs = param +: foundArgs
       Some(param.split("--ivy-settings=")(1))
     }.getOrElse {
       "ivy-settings.xml" //TODO: different default?
@@ -75,7 +72,6 @@ object Deputy {
       System.exit(-1)
     }
     val resolverName = args.find(_.startsWith("--resolver=")).map { param =>
-      foundArgs = param +: foundArgs
       param.split("--resolver=")(1)
     }
 
@@ -95,9 +91,9 @@ object Deputy {
 
     val forkJoiner = new ForkJoiner(ivy.getSettings)
 
-    val res = args.diff(foundArgs).headOption.map(command => {
+    val res = args.lastOption.map(command => {
       if (command == resolveCommand) {
-        forkJoiner.resolveDependencies(commandLineLoop(List()))
+        forkJoiner.resolveDependencies(commandLineLoop(List()), resolverName)
         0
       } else if (command == explodeCommand) {
         forkJoiner.findDependencies(commandLineLoop(List()), resolverName)

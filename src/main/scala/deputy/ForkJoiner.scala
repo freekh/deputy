@@ -21,9 +21,9 @@ class ForkJoiner(settings: IvySettings) {
 
   val extractor = new DependencyExtractor(settings)
 
-  def resolveDependencies(lines: Seq[String]) = {
+  def resolveDependencies(lines: Seq[String], resolverName: Option[String]) = {
     lines.par.foreach { l => //NOTICE the par 
-      resolver.resolveDependency(Dependency.parse(l), List.empty, None, None).foreach { rd =>
+      resolver.resolveDependency(Dependency.parse(l), List.empty, None, resolverName).foreach { rd =>
         printer ! rd
       }
     }
