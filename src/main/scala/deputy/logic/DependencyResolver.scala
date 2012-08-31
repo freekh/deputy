@@ -13,6 +13,7 @@ import deputy.Deputy
 import deputy.models.ResolvedDep
 import deputy.models.Dependency
 import org.apache.ivy.plugins.matcher.Matcher
+import org.apache.ivy.core.module.descriptor.Artifact
 
 object DependencyResolver {
   private def versionRangeMatcher(settings: IvySettings) = {
@@ -31,7 +32,7 @@ object DependencyResolver {
 }
 
 class DependencyResolver(settings: IvySettings) {
-  private def getRepositoryResolvers(resolvers: List[_]): List[RepositoryResolver] = {
+  def getRepositoryResolvers(resolvers: List[_]): List[RepositoryResolver] = {
     import scala.collection.JavaConversions._
     resolvers flatMap { //TODO: @tailrec
 
@@ -41,7 +42,17 @@ class DependencyResolver(settings: IvySettings) {
     }
   }
 
-  def resolveDependency(dep: Dependency, scopes: List[String], parentPath: Option[String], resolverName: Option[String]) = {
+  def getJars(artifact: Artifact, resolverName: String) = {
+    import scala.collection.JavaConversions._
+    (for {
+      resolver <- getRepositoryResolvers(settings.getResolvers.toList).filter(_.getRepository.getName == resolverName)
+      pattern <- resolver.getArtifactPatterns.map { _.toString }
+    } yield {
+      IvyPatternHelper.substitute(pattern, artifact)
+    }).distinct
+  }
+
+  def resolveDependency(dep: Dependency, scopes: List[String], parentPath: Option[String], resolverName: Option[String]) = try {
     import deputy.Constants._
     import scala.collection.JavaConversions._
 
@@ -54,7 +65,7 @@ class DependencyResolver(settings: IvySettings) {
     }
 
     val Dependency(moduleOrg, moduleName, revision) = dep
-    val pubDate = new Date() //???
+    val dummyPubDate = new Date() //just a dummy - we are not going to publish either way
 
     val resolvedDeps = for {
       resolver <- getRepositoryResolvers(settings.getResolvers.toList).distinct if useResolver(resolver.getName)
@@ -65,10 +76,10 @@ class DependencyResolver(settings: IvySettings) {
 
       val (module, artifact) = if (isPom) {
         val pomModule = ModuleRevisionId.newInstance(moduleOrg.replace(".", "/"), moduleName, revision)
-        pomModule -> DefaultArtifact.newPomArtifact(pomModule, pubDate)
+        pomModule -> DefaultArtifact.newPomArtifact(pomModule, dummyPubDate)
       } else {
         val ivyModule = ModuleRevisionId.newInstance(moduleOrg, moduleName, revision)
-        ivyModule -> DefaultArtifact.newIvyArtifact(ivyModule, pubDate)
+        ivyModule -> DefaultArtifact.newIvyArtifact(ivyModule, dummyPubDate)
       }
       val partiallyResolvedPattern = IvyPatternHelper.substitute(pattern, ModuleRevisionId
         .newInstance(module, IvyPatternHelper.getTokenString(IvyPatternHelper.REVISION_KEY)),
@@ -98,5 +109,10 @@ class DependencyResolver(settings: IvySettings) {
       }
     }
     resolvedDeps.flatten
+  } catch {
+    case e => {
+      Deputy.debug("Got exception : " + e + " while processing " + dep)
+      Seq.empty
+    }
   }
 }

@@ -31,13 +31,20 @@ class ForkJoiner(settings: IvySettings) {
 
   def findDependencies(lines: Seq[String], resolverName: Option[String]) = {
     val rds = lines.map(ResolvedDep.parse)
+    rds.foreach { rd => printer ! rd }
     findAllDeps(rds, resolverName, Seq.empty, Seq.empty)
     //rds.foreach { rd => extractor.findDependencies(rd, Seq.empty).foreach { r => printer ! r._1 } }
   }
 
   private def findAllDeps(initRds: Seq[ResolvedDep], resolverName: Option[String], excludeRules: Seq[(String, Option[String])], alreadyResolved: Seq[String]): Seq[(ResolvedDep, Seq[(String, Option[String])])] = {
     val foundRdsAndExcludes = initRds.par.flatMap { rd =>
-      extractor.findDependencies(rd, resolverName, excludeRules)
+      val describedDeps = extractor.parseDescriptor(rd)
+      describedDeps.flatMap {
+        case (deps, artifacts) =>
+          artifacts.foreach { artifact => printer ! artifact }
+
+          extractor.convertToResolvedDep(deps, excludeRules, resolverName, rd)
+      }
     }
     val foundRds = foundRdsAndExcludes.map(_._1).distinct
 
