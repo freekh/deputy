@@ -30,7 +30,7 @@ object Deputy {
       System.err.println(s)
   }
 
-  val latestVersion = true
+  val latestVersion = false
 
   val exitOnFail = true
   def fail(s: String) = {

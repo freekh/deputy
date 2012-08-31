@@ -14,10 +14,12 @@ import deputy.models.ResolvedDep
 import deputy.models.Dependency
 
 object DependencyResolver {
+  /*TODO: remove 
   def acceptRevision(moduleOrg: String, moduleName: String, settings: IvySettings, a: String, b: String) = synchronized { //VersionRangeMatcher is not thread safe! I think we can live with synchronized since we are IO bound
     val vrm = new VersionRangeMatcher("range", settings.getDefaultLatestStrategy)
     vrm.accept(ModuleRevisionId.newInstance(moduleOrg, moduleName, a), ModuleRevisionId.newInstance(moduleOrg, moduleName, b))
   }
+  */
 
   def isDynamicVersion(moduleOrg: String, moduleName: String, settings: IvySettings, a: String) = synchronized {
     val vrm = new VersionRangeMatcher("range", settings.getDefaultLatestStrategy)
@@ -69,19 +71,22 @@ class DependencyResolver(settings: IvySettings) {
         .newInstance(module, IvyPatternHelper.getTokenString(IvyPatternHelper.REVISION_KEY)),
         artifact)
 
-      val possibleRevs = if (DependencyResolver.isDynamicVersion(moduleOrg, moduleName, settings, revision)) {
-        ResolverHelper.listTokenValues(resolver.getRepository, partiallyResolvedPattern,
-          IvyPatternHelper.REVISION_KEY)
-      } else Array(revision)
+      val possibleRevsOpt = if (DependencyResolver.isDynamicVersion(moduleOrg, moduleName, settings, revision)) {
+        Option(ResolverHelper.listTokenValues(resolver.getRepository, partiallyResolvedPattern,
+          IvyPatternHelper.REVISION_KEY))
+      } else Some(Array(revision))
 
-      val revs = if (Deputy.latestVersion) {
-        possibleRevs.sorted.lastOption.toList
-      } else {
-        possibleRevs.toList
+      val revsOpt = possibleRevsOpt.map { possibleRevs =>
+        if (Deputy.latestVersion) {
+          possibleRevs.sorted.lastOption.toList
+        } else {
+          possibleRevs.toList
+        }
       }
 
       for {
-        currentRev <- revs.toList if !DependencyResolver.isDynamicVersion(moduleOrg, moduleName, settings, revision) || DependencyResolver.acceptRevision(moduleOrg, moduleName, settings, revision, currentRev)
+        revs <- revsOpt.toList
+        currentRev <- revs.toList
       } yield {
         val path = IvyPatternHelper.substituteToken(partiallyResolvedPattern,
           IvyPatternHelper.REVISION_KEY, currentRev)
