@@ -15,7 +15,7 @@ import org.apache.ivy.core.module.descriptor.DependencyDescriptor
 class DependencyExtractor(settings: IvySettings) {
   val ProtocolRegExp = """((\w+):/.*?)""".r
 
-  val resolver = new DependencyResolver(settings)
+  val resolver = new DependencyResolver(settings, false)
 
   protected def getUrl(path: String) = {
     path match {

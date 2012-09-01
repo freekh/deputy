@@ -15,23 +15,8 @@ import deputy.models.Dependency
 import org.apache.ivy.plugins.matcher.Matcher
 import org.apache.ivy.core.module.descriptor.Artifact
 
-object DependencyResolver {
-  private def versionRangeMatcher(settings: IvySettings) = {
-    val id = if (Deputy.latestVersion) System.currentTimeMillis.toString //trick to override latest version only needed to display all possible versions of something
-    else "range"
-    new VersionRangeMatcher(id, settings.getDefaultLatestStrategy)
-  }
+class DependencyResolver(settings: IvySettings, uniqueVersion: Boolean) {
 
-  def acceptRevision(moduleOrg: String, moduleName: String, settings: IvySettings, a: String, b: String) = synchronized { //VersionRangeMatcher is not thread safe! I think we can live with synchronized since we are IO bound
-    versionRangeMatcher(settings).accept(ModuleRevisionId.newInstance(moduleOrg, moduleName, a), ModuleRevisionId.newInstance(moduleOrg, moduleName, b))
-  }
-
-  def isDynamicVersion(moduleOrg: String, moduleName: String, settings: IvySettings, a: String) = synchronized {
-    versionRangeMatcher(settings).isDynamic(ModuleRevisionId.newInstance(moduleOrg, moduleName, a))
-  }
-}
-
-class DependencyResolver(settings: IvySettings) {
   def getRepositoryResolvers(resolvers: List[_]): List[RepositoryResolver] = {
     import scala.collection.JavaConversions._
     resolvers flatMap { //TODO: @tailrec
@@ -40,6 +25,20 @@ class DependencyResolver(settings: IvySettings) {
       case r: ChainResolver => getRepositoryResolvers(r.getResolvers.toList)
       //TODO: error msg handling case _ => throw UnsupportedResolver(ivy)  
     }
+  }
+
+  private def versionRangeMatcher() = {
+    val id = if (!uniqueVersion) System.currentTimeMillis.toString //trick to override latest version only needed to display all possible versions of something
+    else "range"
+    new VersionRangeMatcher(id, settings.getDefaultLatestStrategy)
+  }
+
+  def acceptRevision(moduleOrg: String, moduleName: String, a: String, b: String) = synchronized { //VersionRangeMatcher is not thread safe! I think we can live with synchronized since we are IO bound
+    versionRangeMatcher().accept(ModuleRevisionId.newInstance(moduleOrg, moduleName, a), ModuleRevisionId.newInstance(moduleOrg, moduleName, b))
+  }
+
+  def isDynamicVersion(moduleOrg: String, moduleName: String, a: String) = synchronized {
+    versionRangeMatcher().isDynamic(ModuleRevisionId.newInstance(moduleOrg, moduleName, a))
   }
 
   def getJars(artifact: Artifact, resolverName: String) = {
@@ -85,13 +84,13 @@ class DependencyResolver(settings: IvySettings) {
         .newInstance(module, IvyPatternHelper.getTokenString(IvyPatternHelper.REVISION_KEY)),
         artifact)
 
-      val possibleRevsOpt = if (DependencyResolver.isDynamicVersion(moduleOrg, moduleName, settings, revision)) {
+      val possibleRevsOpt = if (isDynamicVersion(moduleOrg, moduleName, revision)) {
         Option(ResolverHelper.listTokenValues(resolver.getRepository, partiallyResolvedPattern,
           IvyPatternHelper.REVISION_KEY))
       } else Some(Array(revision))
 
       val revsOpt = possibleRevsOpt.map { possibleRevs =>
-        if (Deputy.latestVersion) {
+        if (Deputy.latestVersion) { //TODO: fix this 
           possibleRevs.sorted.lastOption.toList
         } else {
           possibleRevs.toList
@@ -100,7 +99,7 @@ class DependencyResolver(settings: IvySettings) {
 
       for {
         revs <- revsOpt.toList
-        currentRev <- revs.toList if (!DependencyResolver.isDynamicVersion(moduleOrg, moduleName, settings, revision) || (DependencyResolver.isDynamicVersion(moduleOrg, moduleName, settings, revision) && DependencyResolver.acceptRevision(moduleOrg, moduleName, settings, revision, currentRev)))
+        currentRev <- revs.toList if (!isDynamicVersion(moduleOrg, moduleName, revision) || (isDynamicVersion(moduleOrg, moduleName, revision) && acceptRevision(moduleOrg, moduleName, revision, currentRev)))
       } yield {
         val path = IvyPatternHelper.substituteToken(partiallyResolvedPattern,
           IvyPatternHelper.REVISION_KEY, currentRev)

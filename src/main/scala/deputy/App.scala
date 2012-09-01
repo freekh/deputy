@@ -7,6 +7,10 @@ import java.io.OutputStream
 import java.io.PrintStream
 import org.apache.ivy.core.IvyContext
 import scala.annotation.tailrec
+import deputy.logic.HighestVersions
+import deputy.logic.HighestVersions
+import deputy.models.ResolvedDep
+import deputy.logic.Graph
 
 /** The launched conscript entry point */
 class App extends xsbti.AppMain {
@@ -58,8 +62,8 @@ object Deputy {
       else lines
     }
 
-    val availableCommands = List("deps-resolved", "resolved-check", "resolved-transitive", "resolved-results")
-    val List(resolveCommand, checkCommand, explodeCommand, resultsCommand) = availableCommands
+    val availableCommands = List("deps-resolved", "resolved-highest-versions", "resolved-transitive", "resolved-treeprint")
+    val List(resolveCommand, highestVersions, explodeCommand, treePrintCommand) = availableCommands
 
     val ivySettingsPath = args.find(_.startsWith("--ivy-settings=")).flatMap { param =>
       Some(param.split("--ivy-settings=")(1))
@@ -89,15 +93,20 @@ object Deputy {
       ivy
     }
 
-    val forkJoiner = new ForkJoiner(ivy.getSettings)
-
     val res = args.lastOption.map(command => {
       if (command == resolveCommand) {
-        forkJoiner.resolveDependencies(commandLineLoop(List()), resolverName)
+        (new ForkJoiner(ivy.getSettings)).resolveDependencies(commandLineLoop(List()), resolverName)
         0
       } else if (command == explodeCommand) {
-        forkJoiner.findDependencies(commandLineLoop(List()), resolverName)
-        //Thread.sleep(40000)
+        (new ForkJoiner(ivy.getSettings)).findDependencies(commandLineLoop(List()), resolverName)
+        0
+      } else if (command == highestVersions) {
+        (new HighestVersions(ivy.getSettings)).extractHighestVersions(commandLineLoop(List()), resolverName)
+        0
+      } else if (command == treePrintCommand) {
+        val lines = commandLineLoop(List())
+        val deps = lines.map(ResolvedDep.parse)
+        PrettyPrinters.treePrint(Graph.create(deps), true)
         0
       } else {
         System.err.println("Unknown command: " + command)
