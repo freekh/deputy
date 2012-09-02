@@ -27,4 +27,11 @@ object Graph {
     }
   }
 
+  def withArtifactsFrom(deps: Seq[ResolvedDep], all: Seq[ResolvedDep]) = {
+    val resolvedMap = all.groupBy(_.resolvedFromArtifact)
+    deps.flatMap { descrDep =>
+      descrDep +: resolvedMap.get(Some(descrDep.path)).flatten.toList
+    }.distinct
+  }
+
 }

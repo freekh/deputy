@@ -10,17 +10,17 @@ import deputy.models.ResolvedDep
 import org.apache.ivy.core.settings.IvySettings
 import scala.annotation.tailrec
 
-class ForkJoiner(settings: IvySettings, quick: Boolean) {
+class ForkJoiner(settings: IvySettings, lines: Seq[String], resolverName: Option[String], quick: Boolean, grepExpr: Option[String]) {
   val actorSystem = ActorSystem("deputy")
 
   val printer = actorSystem.actorOf(Props(new PrinterActor(Deputy.out)))
 
-  val parLevel = 100
+  val parLevel = 100 //TODO: command line option
   collection.parallel.ForkJoinTasks.defaultForkJoinPool.setParallelism(parLevel)
 
   val extractor = new DependencyExtractor(settings, quick)
 
-  def resolveDependencies(lines: Seq[String], resolverName: Option[String]) = {
+  def resolveDependencies() = {
     val resolver = new DependencyResolver(settings, quick)
     lines.par.foreach { l => //NOTICE the par 
       resolver.resolveDependency(Dependency.parse(l), List.empty, None, resolverName).foreach { rd =>
@@ -29,7 +29,7 @@ class ForkJoiner(settings: IvySettings, quick: Boolean) {
     }
   }
 
-  def findDependencies(lines: Seq[String], resolverName: Option[String]) = {
+  def findDependencies() = {
     val rds = lines.map(ResolvedDep.parse)
     rds.foreach { rd => printer ! rd }
     findAllDeps(rds, resolverName, Seq.empty, Set.empty)

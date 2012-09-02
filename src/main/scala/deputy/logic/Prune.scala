@@ -17,14 +17,10 @@ class MRIDArtifactInfo(val id: ModuleRevisionId) extends ArtifactInfo {
   override def getRevision() = id.getRevision()
 }
 
-class HighestVersions(settings: IvySettings) {
+class PruneVersions(settings: IvySettings) {
 
-  def extractHighestVersions(lines: List[String], resolverName: Option[String]) = {
-    val all = lines.map { l =>
-      val rd = ResolvedDep.parse(l)
-      rd
-    }
-
+  def extractHighestVersions(lines: List[String]) = {
+    val all = lines.map(ResolvedDep.parse)
     val highestVersions = {
       val highestStrategy = settings.getDefaultLatestStrategy
       val versionsMut = collection.mutable.Map.empty[(String, String), String]
@@ -55,15 +51,7 @@ class HighestVersions(settings: IvySettings) {
       }
     }
 
-    val highestDeps = Graph.flatten(highestVersionNodes(Graph.create(all)))
-
-    val resolvedMap = all.groupBy(_.resolvedFromArtifact)
-    System.err.println(resolvedMap)
-    val highestDepsWithArtifacts = highestDeps.flatMap { descrDep =>
-      descrDep +: resolvedMap.get(Some(descrDep.path)).flatten.toList
-    }.distinct
-
-    highestDepsWithArtifacts.foreach { rd =>
+    Graph.withArtifactsFrom(Graph.flatten(highestVersionNodes(Graph.create(all))), all).foreach { rd =>
       Deputy.out.println(rd.format)
     }
 

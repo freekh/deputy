@@ -7,8 +7,7 @@ import java.io.OutputStream
 import java.io.PrintStream
 import org.apache.ivy.core.IvyContext
 import scala.annotation.tailrec
-import deputy.logic.HighestVersions
-import deputy.logic.HighestVersions
+import deputy.logic.PruneVersions
 import deputy.models.ResolvedDep
 import deputy.logic.Graph
 
@@ -47,11 +46,6 @@ object Deputy {
    */
   def run(args: Array[String]): Int = {
 
-    if (args.contains("--version")) {
-      println("0.1.3") //TOOD: git hook
-      System.exit(0)
-    }
-
     val reader = new BufferedReader(new InputStreamReader(System.in));
 
     @tailrec def commandLineLoop(lines: List[String]): List[String] = {
@@ -60,8 +54,14 @@ object Deputy {
       else lines
     }
 
+    //TODO: FIX ENTIRE COMMAND LINE OPTION PARSING - THIS SUCKS
+    if (args.contains("--version")) {
+      println("0.1.3") //TOOD: git hook
+      System.exit(0)
+    }
+
     val availableCommands = List("deps-resolved", "resolved-highest-versions", "resolved-transitive", "resolved-treeprint")
-    val List(resolveCommand, highestVersions, explodeCommand, treePrintCommand) = availableCommands
+    val List(resolveCommand, highestVersionsCommand, explodeCommand, treePrintCommand) = availableCommands
 
     val ivySettingsPath = args.find(_.startsWith("--ivy-settings=")).flatMap { param =>
       Some(param.split("--ivy-settings=")(1))
@@ -85,13 +85,18 @@ object Deputy {
       true
     }.getOrElse { false }
 
+    val grepExpr = args.find(_.startsWith("--grep=")).map { param =>
+      param.split("--grep=")(1)
+    }
+
     //WARNING THIS WILL DISABLE write to System.out
     lazy val disableOut = true
-    if (disableOut)
+    if (disableOut) {
       Deputy.debug("DISABLING SYSTEM.OUT")
-    System.setOut(new PrintStream(new OutputStream() {
-      override def write(b: Int) = {}
-    }))
+      System.setOut(new PrintStream(new OutputStream() {
+        override def write(b: Int) = {}
+      }))
+    }
 
     val ivy = {
       val ivy = IvyContext.getContext.getIvy //TODO: is this right?
@@ -101,13 +106,13 @@ object Deputy {
 
     val res = args.lastOption.map(command => {
       if (command == resolveCommand) {
-        (new ForkJoiner(ivy.getSettings, false)).resolveDependencies(commandLineLoop(List()), resolverName)
+        (new ForkJoiner(ivy.getSettings, commandLineLoop(List()), resolverName, quick, grepExpr)).resolveDependencies()
         0
       } else if (command == explodeCommand) {
-        (new ForkJoiner(ivy.getSettings, quick)).findDependencies(commandLineLoop(List()), resolverName)
+        (new ForkJoiner(ivy.getSettings, commandLineLoop(List()), resolverName, quick, grepExpr)).findDependencies()
         0
-      } else if (command == highestVersions) {
-        (new HighestVersions(ivy.getSettings)).extractHighestVersions(commandLineLoop(List()), resolverName)
+      } else if (command == highestVersionsCommand) {
+        (new PruneVersions(ivy.getSettings)).extractHighestVersions(commandLineLoop(List()))
         0
       } else if (command == treePrintCommand) {
         val lines = commandLineLoop(List())
