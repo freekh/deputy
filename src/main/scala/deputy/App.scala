@@ -10,6 +10,10 @@ import scala.annotation.tailrec
 import deputy.logic.PruneVersions
 import deputy.models.ResolvedDep
 import deputy.logic.Graph
+import deputy.logic.Results
+import deputy.models.Result
+import akka.actor.ActorSystem
+import dispatch.Http
 
 /** The launched conscript entry point */
 class App extends xsbti.AppMain {
@@ -40,6 +44,8 @@ object Deputy {
     throw new Exception() //return type
   }
 
+  val actorSystem = ActorSystem("deputy")
+
   /**
    * Shared by the launched version and the runnable version,
    * returns the process status code
@@ -60,8 +66,8 @@ object Deputy {
       System.exit(0)
     }
 
-    val availableCommands = List("deps-resolved", "resolved-highest-versions", "resolved-transitive", "resolved-treeprint")
-    val List(resolveCommand, highestVersionsCommand, explodeCommand, treePrintCommand) = availableCommands
+    val availableCommands = List("deps-resolved", "resolved-highest-versions", "resolved-transitive", "resolved-treeprint", "resolved-results", "results-download")
+    val List(resolveCommand, highestVersionsCommand, explodeCommand, treePrintCommand, resolvedResultsCommand, downloadResultsCommand) = availableCommands
 
     val ivySettingsPath = args.find(_.startsWith("--ivy-settings=")).flatMap { param =>
       Some(param.split("--ivy-settings=")(1))
@@ -124,15 +130,23 @@ object Deputy {
         (new ForkJoiner(ivy.getSettings, commandLineLoop(List()), resolverName, quick, grepExprs)).resolveDependencies()
         0
       } else if (command == explodeCommand) {
+        //TODO: use dep as input instead - this way it is cleaner since parsing is all handled here
         (new ForkJoiner(ivy.getSettings, commandLineLoop(List()), resolverName, quick, grepExprs)).findDependencies()
         0
       } else if (command == highestVersionsCommand) {
+        //TODO: use resolvedDep as input instead - this way it is cleaner since parsing is all handled here
         (new PruneVersions(ivy.getSettings)).extractHighestVersions(commandLineLoop(List()))
         0
       } else if (command == treePrintCommand) {
         val lines = commandLineLoop(List())
         val deps = lines.map(ResolvedDep.parse)
         PrettyPrinters.treePrint(Graph.create(deps), colors = !nocolors)
+        0
+      } else if (command == resolvedResultsCommand) {
+        Results.fromResolved(commandLineLoop(List()).map(ResolvedDep.parse))
+        0
+      } else if (command == downloadResultsCommand) {
+        Results.download(commandLineLoop(List()).map(Result.parse))
         0
       } else {
         System.err.println("Unknown command: " + command)
@@ -142,7 +156,8 @@ object Deputy {
       System.err.println("Provide a command!") //TODO:
       -1
     }
-    //Http.shutdown
+    actorSystem.shutdown()
+    Http.shutdown
     res
   }
   /** Standard runnable class entrypoint */

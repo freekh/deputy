@@ -42,13 +42,23 @@ class DependencyResolver(settings: IvySettings, quick: Boolean, grepExprs: List[
     versionRangeMatcher().isDynamic(ModuleRevisionId.newInstance(moduleOrg, moduleName, a))
   }
 
-  def getJars(artifact: Artifact, resolverName: String) = {
+  def getJars(artifact: Artifact, parent: ResolvedDep) = {
     import scala.collection.JavaConversions._
     (for {
-      resolver <- getRepositoryResolvers(settings.getResolvers.toList).filter(_.getRepository.getName == resolverName)
+      resolver <- getRepositoryResolvers(settings.getResolvers.toList).filter(_.getRepository.getName == parent.resolverName)
       pattern <- resolver.getArtifactPatterns.map { _.toString }
     } yield {
-      IvyPatternHelper.substitute(pattern, artifact)
+      val fixedPattern = {
+        if (resolver.isM2compatible) {
+          val module = ModuleRevisionId.newInstance(parent.dep.moduleOrg.replace(".", "/"), parent.dep.moduleName, parent.dep.revision)
+          IvyPatternHelper.substitute(pattern, ModuleRevisionId.newInstance(module, IvyPatternHelper.getTokenString(IvyPatternHelper.ORGANISATION_KEY)),
+            artifact)
+        } else {
+          pattern
+        }
+      }
+
+      IvyPatternHelper.substitute(fixedPattern, artifact)
     }).distinct
   }
 
@@ -95,7 +105,7 @@ class DependencyResolver(settings: IvySettings, quick: Boolean, grepExprs: List[
       val moduleType = if (isPom) DependencyTypes.pom else DependencyTypes.ivy
 
       val (module, artifact) = if (isPom) {
-        val pomModule = ModuleRevisionId.newInstance(moduleOrg.replace(".", "/"), moduleName, revision)
+        val pomModule = ModuleRevisionId.newInstance(moduleOrg.replace(".", "/"), moduleName, revision) //TODO: / works on windows?
         pomModule -> DefaultArtifact.newPomArtifact(pomModule, dummyPubDate)
       } else {
         val ivyModule = ModuleRevisionId.newInstance(moduleOrg, moduleName, revision)

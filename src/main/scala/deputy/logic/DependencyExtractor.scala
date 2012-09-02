@@ -84,7 +84,7 @@ class DependencyExtractor(settings: IvySettings, quick: Boolean, grepExprs: List
         val descr = descriptorParser.parseDescriptor(settings, descriptorUrl, false)
 
         val resolvedArtifacts = descr.getAllArtifacts.flatMap { artifact =>
-          resolver.getJars(artifact, parent.resolverName).map { artifactPath =>
+          resolver.getJars(artifact, parent).map { artifactPath =>
             parent.copy(path = artifactPath, moduleType = artifact.getType, resolvedFromArtifact = Some(parent.path))
           }
         }
