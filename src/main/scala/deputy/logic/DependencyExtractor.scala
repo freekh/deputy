@@ -12,10 +12,10 @@ import org.apache.ivy.plugins.parser.xml.XmlModuleDescriptorParser
 import org.apache.ivy.core.IvyPatternHelper
 import org.apache.ivy.core.module.descriptor.DependencyDescriptor
 
-class DependencyExtractor(settings: IvySettings) {
+class DependencyExtractor(settings: IvySettings, quick: Boolean) {
   val ProtocolRegExp = """((\w+):/.*?)""".r
 
-  val resolver = new DependencyResolver(settings, false)
+  val resolver = new DependencyResolver(settings, quick)
 
   protected def getUrl(path: String) = {
     path match {

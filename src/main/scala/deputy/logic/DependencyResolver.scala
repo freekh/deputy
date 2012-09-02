@@ -15,7 +15,7 @@ import deputy.models.Dependency
 import org.apache.ivy.plugins.matcher.Matcher
 import org.apache.ivy.core.module.descriptor.Artifact
 
-class DependencyResolver(settings: IvySettings, uniqueVersion: Boolean) {
+class DependencyResolver(settings: IvySettings, quick: Boolean) {
 
   def getRepositoryResolvers(resolvers: List[_]): List[RepositoryResolver] = {
     import scala.collection.JavaConversions._
@@ -28,7 +28,7 @@ class DependencyResolver(settings: IvySettings, uniqueVersion: Boolean) {
   }
 
   private def versionRangeMatcher() = {
-    val id = if (!uniqueVersion) System.currentTimeMillis.toString //trick to override latest version only needed to display all possible versions of something
+    val id = if (!quick) System.currentTimeMillis.toString //trick to override latest version only needed to display all possible versions of something
     else "range"
     new VersionRangeMatcher(id, settings.getDefaultLatestStrategy)
   }
@@ -51,9 +51,31 @@ class DependencyResolver(settings: IvySettings, uniqueVersion: Boolean) {
     }).distinct
   }
 
+  //TODO: I am not very proud of this mutable. can we find another way?
+  private val revisions = collection.mutable.Map.empty[(String, String, Option[String]), String]
   def resolveDependency(dep: Dependency, scopes: List[String], parentPath: Option[String], resolverName: Option[String]) = try {
     import deputy.Constants._
     import scala.collection.JavaConversions._
+
+    val Dependency(moduleOrg, moduleName, revision) = dep
+
+    //TODO: duplicate code in highest versions
+    val highestStrategy = settings.getDefaultLatestStrategy
+    def isNewestVersion = {
+      val key = (moduleOrg, moduleName, resolverName)
+      revisions.get(key).map { lastRev =>
+        val lastArt = new MRIDArtifactInfo(ModuleRevisionId.newInstance(dep.moduleOrg, dep.moduleName, lastRev));
+        val currentArt = new MRIDArtifactInfo(ModuleRevisionId.newInstance(dep.moduleOrg, dep.moduleName, revision));
+        val foundLatest = highestStrategy.findLatest(Array(currentArt, lastArt), null).getRevision
+        val isNewest = revision == foundLatest
+        if (isNewest) revisions += key -> foundLatest //WARNING MUTATE!
+        if (!isNewest) Deputy.debug("Skipping: " + dep + " because a newer version was found: " + foundLatest)
+        isNewest
+      }.getOrElse {
+        revisions += key -> revision //WARNING MUTATE!
+        true
+      }
+    }
 
     def useResolver(rn: String) = {
       resolverName.map { crn =>
@@ -63,9 +85,7 @@ class DependencyResolver(settings: IvySettings, uniqueVersion: Boolean) {
       }
     }
 
-    val Dependency(moduleOrg, moduleName, revision) = dep
     val dummyPubDate = new Date() //just a dummy - we are not going to publish either way
-
     val resolvedDeps = for {
       resolver <- getRepositoryResolvers(settings.getResolvers.toList).distinct if useResolver(resolver.getName)
       pattern <- resolver.getIvyPatterns.map(_.toString)
@@ -80,6 +100,7 @@ class DependencyResolver(settings: IvySettings, uniqueVersion: Boolean) {
         val ivyModule = ModuleRevisionId.newInstance(moduleOrg, moduleName, revision)
         ivyModule -> DefaultArtifact.newIvyArtifact(ivyModule, dummyPubDate)
       }
+
       val partiallyResolvedPattern = IvyPatternHelper.substitute(pattern, ModuleRevisionId
         .newInstance(module, IvyPatternHelper.getTokenString(IvyPatternHelper.REVISION_KEY)),
         artifact)
@@ -89,17 +110,9 @@ class DependencyResolver(settings: IvySettings, uniqueVersion: Boolean) {
           IvyPatternHelper.REVISION_KEY))
       } else Some(Array(revision))
 
-      val revsOpt = possibleRevsOpt.map { possibleRevs =>
-        if (Deputy.latestVersion) { //TODO: fix this 
-          possibleRevs.sorted.lastOption.toList
-        } else {
-          possibleRevs.toList
-        }
-      }
-
       for {
-        revs <- revsOpt.toList
-        currentRev <- revs.toList if (!isDynamicVersion(moduleOrg, moduleName, revision) || (isDynamicVersion(moduleOrg, moduleName, revision) && acceptRevision(moduleOrg, moduleName, revision, currentRev)))
+        revs <- possibleRevsOpt.toList
+        currentRev <- revs.toList if (!quick || isNewestVersion) && (!isDynamicVersion(moduleOrg, moduleName, revision) || (isDynamicVersion(moduleOrg, moduleName, revision) && acceptRevision(moduleOrg, moduleName, revision, currentRev)))
       } yield {
         val path = IvyPatternHelper.substituteToken(partiallyResolvedPattern,
           IvyPatternHelper.REVISION_KEY, currentRev)

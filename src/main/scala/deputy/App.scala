@@ -28,7 +28,7 @@ object Deputy {
     if (progressMode)
       System.err.print(s)
   }
-  val debugMode = false
+  val debugMode = true
   def debug(s: String) = {
     if (debugMode)
       System.err.println(s)
@@ -79,6 +79,10 @@ object Deputy {
       param.split("--resolver=")(1)
     }
 
+    val quick = args.find(_.startsWith("--quick")).map { _ =>
+      true
+    }.getOrElse { false }
+
     //WARNING THIS WILL DISABLE write to System.out
     lazy val disableOut = true
     if (disableOut)
@@ -95,10 +99,10 @@ object Deputy {
 
     val res = args.lastOption.map(command => {
       if (command == resolveCommand) {
-        (new ForkJoiner(ivy.getSettings)).resolveDependencies(commandLineLoop(List()), resolverName)
+        (new ForkJoiner(ivy.getSettings, false)).resolveDependencies(commandLineLoop(List()), resolverName)
         0
       } else if (command == explodeCommand) {
-        (new ForkJoiner(ivy.getSettings)).findDependencies(commandLineLoop(List()), resolverName)
+        (new ForkJoiner(ivy.getSettings, quick)).findDependencies(commandLineLoop(List()), resolverName)
         0
       } else if (command == highestVersions) {
         (new HighestVersions(ivy.getSettings)).extractHighestVersions(commandLineLoop(List()), resolverName)

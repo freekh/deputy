@@ -12,12 +12,12 @@ import org.apache.ivy.plugins.latest.ArtifactInfo
 import deputy.models.Dependency
 import deputy.logic.Graph.Node
 
-class HighestVersions(settings: IvySettings) {
+class MRIDArtifactInfo(val id: ModuleRevisionId) extends ArtifactInfo {
+  override def getLastModified() = 0
+  override def getRevision() = id.getRevision()
+}
 
-  class MRIDArtifactInfo(val id: ModuleRevisionId) extends ArtifactInfo {
-    override def getLastModified() = 0
-    override def getRevision() = id.getRevision()
-  }
+class HighestVersions(settings: IvySettings) {
 
   def extractHighestVersions(lines: List[String], resolverName: Option[String]) = {
     val all = lines.map { l =>
