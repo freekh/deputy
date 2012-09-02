@@ -3,8 +3,8 @@ package deputy
 import deputy.logic.Graph._
 
 object PrettyPrinters {
-  def treePrint(nodes: Set[Node], colors: Boolean = true) = {
-    def treePrint(nodes: Set[Node], level: Int, colors: Boolean = true): Unit = {
+  def treePrint(nodes: Set[Node], colors: Boolean) = {
+    def treePrint(nodes: Set[Node], level: Int): Unit = {
       nodes.foreach { n =>
         val dep = n.rd.dep
         val sep = if (colors) Console.YELLOW + ":" + Console.RESET else ":"
@@ -14,7 +14,7 @@ object PrettyPrinters {
         val revision = if (colors) colorize(dep.revision) else dep.revision
         val arrows = if (colors) Console.GREEN + ("   |" * level) + "-->" + Console.RESET else ("   |" * level) + "-->"
         val resolver = if (level == 0) " (" + n.rd.resolverName + ")" else ""
-        System.err.println(arrows + moduleOrg + sep + moduleName + sep + revision + resolver)
+        Deputy.out.println(arrows + moduleOrg + sep + moduleName + sep + revision + resolver)
         treePrint(n.children, level + 1)
       }
     }

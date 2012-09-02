@@ -34,8 +34,6 @@ object Deputy {
       System.err.println(s)
   }
 
-  val latestVersion = false
-
   val exitOnFail = true
   def fail(s: String) = {
     System.err.println(s)
@@ -83,6 +81,10 @@ object Deputy {
       true
     }.getOrElse { false }
 
+    val nocolors = args.find(_.startsWith("--nocolors")).map { _ =>
+      true
+    }.getOrElse { false }
+
     //WARNING THIS WILL DISABLE write to System.out
     lazy val disableOut = true
     if (disableOut)
@@ -110,7 +112,7 @@ object Deputy {
       } else if (command == treePrintCommand) {
         val lines = commandLineLoop(List())
         val deps = lines.map(ResolvedDep.parse)
-        PrettyPrinters.treePrint(Graph.create(deps), true)
+        PrettyPrinters.treePrint(Graph.create(deps), colors = !nocolors)
         0
       } else {
         System.err.println("Unknown command: " + command)
