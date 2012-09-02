@@ -9,8 +9,9 @@ import deputy.models.Dependency
 import deputy.models.ResolvedDep
 import org.apache.ivy.core.settings.IvySettings
 import scala.annotation.tailrec
+import scala.util.matching.Regex
 
-class ForkJoiner(settings: IvySettings, lines: Seq[String], resolverName: Option[String], quick: Boolean, grepExpr: Option[String]) {
+class ForkJoiner(settings: IvySettings, lines: Seq[String], resolverName: Option[String], quick: Boolean, grepExpr: List[Regex]) {
   val actorSystem = ActorSystem("deputy")
 
   val printer = actorSystem.actorOf(Props(new PrinterActor(Deputy.out)))
@@ -18,10 +19,10 @@ class ForkJoiner(settings: IvySettings, lines: Seq[String], resolverName: Option
   val parLevel = 100 //TODO: command line option
   collection.parallel.ForkJoinTasks.defaultForkJoinPool.setParallelism(parLevel)
 
-  val extractor = new DependencyExtractor(settings, quick)
+  val extractor = new DependencyExtractor(settings, quick, grepExpr)
 
   def resolveDependencies() = {
-    val resolver = new DependencyResolver(settings, quick)
+    val resolver = new DependencyResolver(settings, quick, grepExpr)
     lines.par.foreach { l => //NOTICE the par 
       resolver.resolveDependency(Dependency.parse(l), List.empty, None, resolverName).foreach { rd =>
         printer ! rd

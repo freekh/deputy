@@ -14,8 +14,9 @@ import deputy.models.ResolvedDep
 import deputy.models.Dependency
 import org.apache.ivy.plugins.matcher.Matcher
 import org.apache.ivy.core.module.descriptor.Artifact
+import scala.util.matching.Regex
 
-class DependencyResolver(settings: IvySettings, quick: Boolean) {
+class DependencyResolver(settings: IvySettings, quick: Boolean, grepExprs: List[Regex]) {
 
   def getRepositoryResolvers(resolvers: List[_]): List[RepositoryResolver] = {
     import scala.collection.JavaConversions._
@@ -118,7 +119,7 @@ class DependencyResolver(settings: IvySettings, quick: Boolean) {
         }
       }
 
-      for {
+      val potentials = for {
         revs <- possibleRevsOpt.toList
         currentRev <- revs.toList if (!quick || isNewestVersion(currentRev)) && (!isDynamicVersion(moduleOrg, moduleName, revision) || (isDynamicVersion(moduleOrg, moduleName, revision) && acceptRevision(moduleOrg, moduleName, revision, currentRev)))
       } yield {
@@ -126,6 +127,11 @@ class DependencyResolver(settings: IvySettings, quick: Boolean) {
           IvyPatternHelper.REVISION_KEY, currentRev)
         val newDep = Dependency(moduleOrg, moduleName, currentRev)
         ResolvedDep(newDep, moduleType, resolver.getName, scopes, path, parentPath)
+      }
+
+      potentials.filter { rd =>
+        val line = rd.format
+        grepExprs.foldLeft(true)((last, regExpr) => last && regExpr.findFirstIn(line).isDefined)
       }
     }
     resolvedDeps.flatten

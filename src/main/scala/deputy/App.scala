@@ -27,8 +27,8 @@ object Deputy {
     if (progressMode)
       System.err.print(s)
   }
-  val debugMode = true
-  def debug(s: String) = {
+  val debugMode = false
+  def debug(s: => String) = {
     if (debugMode)
       System.err.println(s)
   }
@@ -86,7 +86,22 @@ object Deputy {
     }.getOrElse { false }
 
     val grepExpr = args.find(_.startsWith("--grep=")).map { param =>
-      param.split("--grep=")(1)
+      val ex = param.split("--grep=")(1)
+      ex -> ex
+    }
+    val grepExludeExpr = args.find(_.startsWith("--grep-v=")).map { param =>
+      val ex = param.split("--grep-v=")(1)
+      "^(?!.*" + ex + ").*$" -> ex
+    }
+    val grepExprs = (grepExpr.toList ++ grepExludeExpr.toList).map {
+      case (trans, orig) =>
+        try {
+          trans.r
+        } catch {
+          case e: java.util.regex.PatternSyntaxException =>
+            val transformedMsg = if (orig != trans) " It was transformed to: '" + trans + "'." else ""
+            Deputy.fail("Error: grep expr: '" + orig + "' failed!" + transformedMsg + " This is the details: " + e.getDescription)
+        }
     }
 
     //WARNING THIS WILL DISABLE write to System.out
@@ -106,10 +121,10 @@ object Deputy {
 
     val res = args.lastOption.map(command => {
       if (command == resolveCommand) {
-        (new ForkJoiner(ivy.getSettings, commandLineLoop(List()), resolverName, quick, grepExpr)).resolveDependencies()
+        (new ForkJoiner(ivy.getSettings, commandLineLoop(List()), resolverName, quick, grepExprs)).resolveDependencies()
         0
       } else if (command == explodeCommand) {
-        (new ForkJoiner(ivy.getSettings, commandLineLoop(List()), resolverName, quick, grepExpr)).findDependencies()
+        (new ForkJoiner(ivy.getSettings, commandLineLoop(List()), resolverName, quick, grepExprs)).findDependencies()
         0
       } else if (command == highestVersionsCommand) {
         (new PruneVersions(ivy.getSettings)).extractHighestVersions(commandLineLoop(List()))

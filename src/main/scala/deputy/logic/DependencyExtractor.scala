@@ -11,11 +11,12 @@ import org.apache.ivy.plugins.parser.ModuleDescriptorParser
 import org.apache.ivy.plugins.parser.xml.XmlModuleDescriptorParser
 import org.apache.ivy.core.IvyPatternHelper
 import org.apache.ivy.core.module.descriptor.DependencyDescriptor
+import scala.util.matching.Regex
 
-class DependencyExtractor(settings: IvySettings, quick: Boolean) {
+class DependencyExtractor(settings: IvySettings, quick: Boolean, grepExprs: List[Regex]) {
   val ProtocolRegExp = """((\w+):/.*?)""".r
 
-  val resolver = new DependencyResolver(settings, quick)
+  val resolver = new DependencyResolver(settings, quick, grepExprs)
 
   protected def getUrl(path: String) = {
     path match {
