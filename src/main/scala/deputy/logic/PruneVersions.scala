@@ -55,7 +55,15 @@ class HighestVersions(settings: IvySettings) {
       }
     }
 
-    Graph.flatten(highestVersionNodes(Graph.create(all))).foreach { rd =>
+    val highestDeps = Graph.flatten(highestVersionNodes(Graph.create(all)))
+
+    val resolvedMap = all.groupBy(_.resolvedFromArtifact)
+    System.err.println(resolvedMap)
+    val highestDepsWithArtifacts = highestDeps.flatMap { descrDep =>
+      descrDep +: resolvedMap.get(Some(descrDep.path)).flatten.toList
+    }.distinct
+
+    highestDepsWithArtifacts.foreach { rd =>
       Deputy.out.println(rd.format)
     }
 
