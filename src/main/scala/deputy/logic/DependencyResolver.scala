@@ -50,9 +50,9 @@ class DependencyResolver(settings: IvySettings, quick: Boolean, grepExprs: List[
     } yield {
       val fixedPattern = {
         if (resolver.isM2compatible) {
-          val module = ModuleRevisionId.newInstance(parent.dep.moduleOrg.replace(".", "/"), parent.dep.moduleName, parent.dep.revision)
-          IvyPatternHelper.substitute(pattern, ModuleRevisionId.newInstance(module, IvyPatternHelper.getTokenString(IvyPatternHelper.ORGANISATION_KEY)),
-            artifact)
+          val a = IvyPatternHelper.substituteToken(pattern, IvyPatternHelper.ORGANISATION_KEY, artifact.getId.getModuleRevisionId.getOrganisation.replace(".", "/"))
+          System.err.println(" >> " + a)
+          a
         } else {
           pattern
         }
