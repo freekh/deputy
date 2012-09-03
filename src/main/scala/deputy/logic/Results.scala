@@ -28,9 +28,14 @@ object Results {
 
         val completedFilename = urlString.split("/").toList.last
         val destination = new File(completedFilename + "." + urlString.hashCode)
+        destination.deleteOnExit
         val akkaP = akka.dispatch.Promise[Option[(String, File)]]()
+        Deputy.debug("Downloading: " + urlString + " to " + destination.getAbsolutePath)
         Http(svc OK as.File(destination)).onComplete { r =>
-          r.fold(ex => None, _ => {
+          r.fold(ex => {
+            Deputy.debug("Failed while downloading: " + urlString + ". Reason: " + ex.getMessage)
+            akkaP.complete(Right(None))
+          }, _ => {
             akkaP.complete(Right(Some(completedFilename -> destination))) //I wish I could pass an Either here, but it does not work
             None
           })
@@ -39,13 +44,31 @@ object Results {
       }
     }
 
+    def firstSomeCompleted(files: List[Future[Option[(String, File)]]]): Future[Option[(String, File)]] = {
+      val current = Future.firstCompletedOf(files)
+      current.flatMap { res =>
+        if (res == None) {
+          Deputy.debug("Filtering out: " + current + " from " + files)
+          firstSomeCompleted(files.filter(_ != current))
+        } else {
+          Deputy.debug("Got res: " + res)
+          Future { res }
+        }
+      }
+
+    }
+
     val completedFiles = initiated.map { files =>
-      Future.firstCompletedOf(files).map { result =>
+      Future.find(files)(_ != None).map { result =>
         result.foreach {
-          case (completedFilename, file) =>
-            val dest = new File(completedFilename)
-            file.renameTo(dest)
-            Deputy.out.println(dest.getAbsolutePath)
+          _.foreach {
+            case (completedFilename, file) =>
+              val dest = new File(completedFilename)
+              file.renameTo(dest)
+              Deputy.debug("Finished: " + file.getAbsolutePath)
+
+              Deputy.out.println(dest.getAbsolutePath)
+          }
         }
       }
     }

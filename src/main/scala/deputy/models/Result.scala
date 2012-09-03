@@ -1,12 +1,20 @@
 package deputy.models
 
+import deputy.Deputy
+
 object Result {
   def parse(line: String) = {
-    val lineParts = line.split("=")
-    val urlsStr = lineParts.toList(1)
-    val keySplit = lineParts(0).split("#")
-    //TODO: error handling and use Reg ex instead!
-    Result(Dependency.parse(keySplit(0)), keySplit(1), urlsStr.split(",").toList)
+    try {
+      val lineParts = line.split("=")
+      val urlsStr = lineParts.toList(1)
+      val keySplit = lineParts(0).split("#")
+      //TODO: error handling and use Reg ex instead!
+      Result(Dependency.parse(keySplit(0)), keySplit(1), urlsStr.split(",").toList)
+    } catch {
+      case e: Exception =>
+        Deputy.fail("Failed while parsing result: " + line)
+        throw e
+    }
   }
 }
 
