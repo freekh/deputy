@@ -14,6 +14,7 @@ import akka.dispatch.Future
 import java.io.File
 import akka.util.Duration
 import akka.dispatch.OnFailure
+import java.io.FileOutputStream
 
 object Results {
 
@@ -28,18 +29,26 @@ object Results {
 
         val completedFilename = urlString.split("/").toList.last
         val destination = new File(completedFilename + "." + urlString.hashCode)
-        destination.deleteOnExit
+        destination.deleteOnExit()
+
         val akkaP = akka.dispatch.Promise[Option[(String, File)]]()
         Deputy.debug("Downloading: " + urlString + " to " + destination.getAbsolutePath)
-        Http(svc OK as.File(destination)).onComplete { r =>
+        Http(svc OK as.Bytes).onComplete { r =>
           r.fold(ex => {
             Deputy.debug("Failed while downloading: " + urlString + ". Reason: " + ex.getMessage)
-            akkaP.complete(Right(None))
-          }, _ => {
-            akkaP.complete(Right(Some(completedFilename -> destination))) //I wish I could pass an Either here, but it does not work
-            None
+            akkaP.complete(Right(None)) //I wish I could pass an Either directly here, but it does not work (throws the exception and never completes the akka promise)
+          }, bytes => {
+            val fos = new FileOutputStream(destination)
+            try {
+              fos.write(bytes)
+              akkaP.complete(Right(Some(completedFilename -> destination)))
+              None
+            } finally {
+              fos.close()
+            }
           })
         }
+
         akkaP
       }
     }
