@@ -52,6 +52,7 @@ Cookbook
 1. Download the dependencies you need to compile from io.netty:netty:3.5.0.Final
 
 .. code-block:: bash
+
   echo io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy --quick --grep="\|.*compile.*\|" resolved-transitive | deputy resolved-highest-versions  | deputy resolved-results | grep -v "#pom" | grep -v "#ivy" | deputy results-download-file
 
 2. Inspect all dependencies io.netty:netty:3.5.0.Final by printing them out in a tree
