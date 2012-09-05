@@ -24,9 +24,10 @@ class App extends xsbti.AppMain {
 
 object Deputy {
   val help = """          
-          |^^^^^^\   /^^^^^|  |^^^^^\   |^^    ^^|  |^^^^^^^^^^|  \^\   /^/
-          | |^^^| |  | |^^^   | ==== |  | |    | |   ^^^|  |^^^    \ \ / /
-          | |   | |  | |===|  |   __/   | |    | |      |  |        \   / 
+           ______      ____    _____     __    __    _________   __      __ 
+          | _____\   / ____|  |  __ \   | |    | |  |___   ___|  \ \    / /
+          | |   | |  | |___   | |__| |  | |    | |      |  |       \ \ / /
+          | |   | |  | |___|  |   __/   | |    | |      |  |        \ Y / 
           | |___| |  | |___   |  |      \  \__/  /      |  |         | |
           |______/   \_____|  |__|       \______/       |__|         |_|
 SYNOPSIS:
@@ -37,8 +38,8 @@ USAGE:
   deputy <options> <command>
 
 EXAMPLE:
-  # Prints out a tree of ALL dependencies (does not prune any version) that name.fredrikekholdt:deputy:0.1.3 transitively depends on
-  echo name.fredrikekholdt:deputy:0.1.3 | deputy deps-resolved | deputy resolved-transtive | deputy resolved-results | deputy results-download-file
+  # Prints out a tree of ALL dependencies (does not prune any version) that fredrikekholdt:deputy:0.1.3 transitively depends on
+  echo fredrikekholdt:deputy:0.1.3 | deputy deps-resolved | deputy resolved-transtive | deputy resolved-results | deputy results-download-file
     
 COMMANDS:
   deps-resolved              transform from deps (format: org:name:version) to resolved (format: <org:name:version>|<type>|<resolver>|<conf>|<path>|<resolved-from>|)

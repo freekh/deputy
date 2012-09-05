@@ -1,7 +1,7 @@
 
 What is deputy?
 ===============
-Deputy stands for dependency utility and is a command line tool that
+Deputy is short for dependency utility. It is a command line tool that
 helps you inspect ivy and maven dependencies. Continue reading to learn more!
 
 
