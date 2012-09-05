@@ -23,16 +23,16 @@ class PruneVersions(settings: IvySettings) {
     val all = lines.map(ResolvedDep.parse)
     val highestVersions = {
       val highestStrategy = settings.getDefaultLatestStrategy
-      val versionsMut = collection.mutable.Map.empty[(String, String), String]
+      val versionsMut = collection.mutable.Map.empty[(String, String, String), String]
       all.map { rd =>
         val dep = rd.dep
-        val key = (dep.moduleOrg, dep.moduleName)
+        val key = (dep.moduleOrg, dep.moduleName, rd.resolverName)
         val latest = versionsMut.get(key).map { lastRev =>
           val last = new MRIDArtifactInfo(ModuleRevisionId.newInstance(dep.moduleOrg, dep.moduleName, lastRev));
           val current = new MRIDArtifactInfo(ModuleRevisionId.newInstance(dep.moduleOrg, dep.moduleName, dep.revision));
-
-          highestStrategy.findLatest(Array(current, last), null).getRevision
-
+          val found = highestStrategy.findLatest(Array(current, last), null).getRevision
+          Deputy.debug(dep.moduleOrg + ":" + dep.moduleName + " who wins: " + lastRev + " VS " + dep.revision + ". " + found + " WINS!")
+          found
         }.getOrElse {
           dep.revision
         }
@@ -45,8 +45,13 @@ class PruneVersions(settings: IvySettings) {
       nodes.map { n =>
         val children = n.children.filter { child =>
           val Dependency(moduleOrg, moduleName, revision) = child.rd.dep
-          highestVersions(moduleOrg -> moduleName) == revision //we assume on purpose that the key is present
+          val key = (moduleOrg, moduleName, child.rd.resolverName)
+          val keep = highestVersions(key) == revision //we assume on purpose that the key is present - if this fails we want to get the stacktrace
+          if (!keep) Deputy.debug("Pruning: " + child.rd.dep)
+          else Deputy.debug("Keeping: " + child.rd.dep)
+          keep
         }
+        //System.err.println("filtered children: " + children)
         Node(n.rd, children = highestVersionNodes(children))
       }
     }

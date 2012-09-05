@@ -30,7 +30,7 @@ object Graph {
   def withArtifactsFrom(deps: Seq[ResolvedDep], all: Seq[ResolvedDep]) = {
     val resolvedMap = all.groupBy(_.resolvedFromArtifact)
     deps.flatMap { descrDep =>
-      descrDep +: resolvedMap.get(Some(descrDep.path)).flatten.toList
+      descrDep +: resolvedMap.get(Some(descrDep.path)).flatten.toList.filter(rd => !(rd.moduleType == DependencyTypes.pom || rd.moduleType == DependencyTypes.ivy))
     }.distinct
   }
 
