@@ -9,7 +9,7 @@ Installation
 ==============
 NOW: run sbt, compile then add this folder on the PATH
 
-COMING: Install `conscript`_ and then do::
+COMING: Install `conscript`_ and then do:
 
 .. code-block:: bash
 
@@ -17,13 +17,11 @@ COMING: Install `conscript`_ and then do::
 
 Getting started
 ================
-Run::
+To learn more about available commands and options, run:
 
 .. code-block:: bash
 
   deputy --help
-
-To learn more about available commands and options
 
 
 How it works
