@@ -23,7 +23,7 @@ object Results {
     //val downloadManager = Deputy.actorSystem.actorOf(Props(new DownloadManager(10)))
     val maxWait = "60 minutes" //TODO: conf
     val initiated = results.map { res =>
-      res.urls.map { urlString =>
+      res.urls.filter(url => url.startsWith(DependencyExtractor.HttpProtocol)).map { urlString =>
         import dispatch._
         val svc = url(urlString)
 

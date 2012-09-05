@@ -23,15 +23,51 @@ class App extends xsbti.AppMain {
 }
 
 object Deputy {
+  val help = """          
+          |^^^^^^\   /^^^^^|  |^^^^^\   |^^    ^^|  |^^^^^^^^^^|  \^\   /^/
+          | |^^^| |  | |^^^   | ==== |  | |    | |   ^^^|  |^^^    \ \ / /
+          | |   | |  | |===|  |   __/   | |    | |      |  |        \   / 
+          | |___| |  | |___   |  |      \  \__/  /      |  |         | |
+          |______/   \_____|  |__|       \______/       |__|         |_|
+SYNOPSIS:
+  Deputy stands for dependency utility and is a command line tool that helps you inspect ivy and maven dependencies.
+  It works by piping from one command to the next.
+
+USAGE:
+  deputy <options> <command>
+
+EXAMPLE:
+  # Prints out a tree of ALL dependencies (does not prune any version) that name.fredrikekholdt:deputy:0.1.3 transitively depends on
+  echo name.fredrikekholdt:deputy:0.1.3 | deputy deps-resolved | deputy resolved-transtive | deputy resolved-results | deputy results-download-file
+    
+COMMANDS:
+  deps-resolved              transform from deps (format: org:name:version) to resolved (format: <org:name:version>|<type>|<resolver>|<conf>|<path>|<resolved-from>|)
+
+  resolved-transitive        transitively find dependencies
+  resolved-highest-versions  prune away dependencies where there exists a higher version        
+  resolved-treeprint         print a tree representing the dependencies
+  resolved-results           transform from resolved (format: <org:name:version>|<type>|<resolver>|<conf>|<path>|<resolved-from>|) to results (format:<org:name:version>#<type>=<uri>,<uri>,...)
+  
+  results-download-file      download results and emit filename 
+    
+OPTIONS:
+  --quick                    skip lower versioned dependencies that ivy also would skip when resolving
+  --resolver=<RESOLVERNAME>  use only the resolver RESOLVERNAME 
+  --ivy-settings=<FILE>      use the xml ivy settings file in FILE. Defaults to: ivy-settings.xml
+  --grep=<REGEXP>            use only dependencies (and the ones below) that matches REGEXP
+  --grep-v=<REGEXP>          prune away dependencies (and the ones below) that matches REGEXP
+    
+  --nocolors                 do not use colors
+  --version                  prints version and exits
+  --help,-h                  prints this help
+  --debug                    emit debug to stderr
+    
+COOKBOOK:
+  Check out the homepage to learn more about usage: http://github.com/freekh/deputy"""
 
   val out = System.out
 
-  val progressMode = true
-  def progress(s: String) = {
-    if (progressMode)
-      System.err.print(s)
-  }
-  val debugMode = false
+  var debugMode = false
   def debug(s: => String) = {
     if (debugMode)
       System.err.println(s)
@@ -62,23 +98,26 @@ object Deputy {
 
     //TODO: FIX ENTIRE COMMAND LINE OPTION PARSING - THIS SUCKS
     if (args.contains("--version")) {
-      println("0.1.3") //TOOD: git hook
+      Deputy.out.println("0.1.3") //TOOD: git hook here and in print
       System.exit(0)
     }
 
-    val availableCommands = List("deps-resolved", "resolved-highest-versions", "resolved-transitive", "resolved-treeprint", "resolved-results", "results-download")
+    if (args.contains("--help") || args.contains("-h")) {
+      Deputy.out.println(help)
+      System.exit(0)
+    }
+
+    if (args.contains("--debug")) {
+      debugMode = true
+    }
+
+    val availableCommands = List("deps-resolved", "resolved-highest-versions", "resolved-transitive", "resolved-treeprint", "resolved-results", "results-download-file")
     val List(resolveCommand, highestVersionsCommand, explodeCommand, treePrintCommand, resolvedResultsCommand, downloadResultsCommand) = availableCommands
 
     val ivySettingsPath = args.find(_.startsWith("--ivy-settings=")).flatMap { param =>
       Some(param.split("--ivy-settings=")(1))
-    }.getOrElse {
-      "ivy-settings.xml" //TODO: different default?
     }
-    val ivySettingsFile = new File(ivySettingsPath)
-    if (!ivySettingsFile.isFile) {
-      System.err.println("Cannot find ivy settings xml file in path: " + ivySettingsPath + " ...") //TODO: throw expectedexception instead?
-      System.exit(-1)
-    }
+
     val resolverName = args.find(_.startsWith("--resolver=")).map { param =>
       param.split("--resolver=")(1)
     }
@@ -110,7 +149,7 @@ object Deputy {
         }
     }
 
-    //WARNING THIS WILL DISABLE write to System.out
+    //WARNING THIS WILL DISABLE writes to System.out
     lazy val disableOut = true
     if (disableOut) {
       Deputy.debug("DISABLING SYSTEM.OUT")
@@ -121,7 +160,15 @@ object Deputy {
 
     val ivy = {
       val ivy = IvyContext.getContext.getIvy //TODO: is this right?
-      ivy.configure(ivySettingsFile)
+      ivySettingsPath.foreach { ivySettingsPath =>
+        val ivySettingsFile = new File(ivySettingsPath)
+        if (!ivySettingsFile.isFile) {
+          System.err.println("Cannot find ivy settings xml file in path: " + ivySettingsPath + " ...") //TODO: throw expectedexception instead?
+          System.exit(-1)
+        } else {
+          ivy.configure(ivySettingsFile)
+        }
+      }
       ivy
     }
 
@@ -149,11 +196,11 @@ object Deputy {
         Results.download(commandLineLoop(List()).map(Result.parse))
         0
       } else {
-        System.err.println("Unknown command: " + command)
+        System.err.println("Unknown command: " + command + ". Type deputy --help to learn about the commands.")
         -1
       }
     }).getOrElse {
-      System.err.println("Provide a command!") //TODO:
+      System.err.println("You must specify a command! Type deputy --help to learn about the commands.")
       -1
     }
     actorSystem.shutdown()

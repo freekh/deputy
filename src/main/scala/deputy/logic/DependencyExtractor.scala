@@ -13,15 +13,22 @@ import org.apache.ivy.core.IvyPatternHelper
 import org.apache.ivy.core.module.descriptor.DependencyDescriptor
 import scala.util.matching.Regex
 
+object DependencyExtractor {
+  val FileProtocol = "file"
+  val HttpProtocol = "http"
+}
+
 class DependencyExtractor(settings: IvySettings, quick: Boolean, grepExprs: List[Regex]) {
+  import DependencyExtractor._
+
   val ProtocolRegExp = """((\w+):/.*?)""".r
 
   val resolver = new DependencyResolver(settings, quick, grepExprs)
 
-  protected def getUrl(path: String) = {
+  def getUrl(path: String) = {
     path match {
       case ProtocolRegExp(urlPath, protocol) => protocol match {
-        case "file" => {
+        case FileProtocol => {
           val url = new URL(urlPath)
           val file = new File(url.getFile)
           if (file.exists) {
