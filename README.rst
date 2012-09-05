@@ -11,11 +11,15 @@ NOW: run sbt, compile then add this folder on the PATH
 
 COMING: Install `conscript`_ and then do::
    
+.. code-block:: bash
+
    $cs freekh/deputy
 
 Getting started
 ================
 Run::
+
+.. code-block:: bash
 
   $deputy --help
 
@@ -49,17 +53,27 @@ Cookbook
 
 1. Download the dependencies you need to compile from io.netty:netty:3.5.0.Final
 
+.. code-block:: bash
+
   $echo io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy --quick --grep="\|.*compile.*\|" resolved-transitive | deputy resolved-highest-versions  | deputy resolved-results | grep -v "#pom" | grep -v "#ivy" | deputy results-download-file
 
 2. Inspect all dependencies io.netty:netty:3.5.0.Final by printing them out in a tree
+
+.. code-block:: bash
 
   $echo io.netty:netty:3.5.0.Final | ./deputy deps-resolved | ./deputy resolved-transitive | ./deputy resolved-treeprint
 
 3. Print out  dependencies that has pruned because there exists a higher version
 
+.. code-block:: bash
+
   $echo io.netty:netty:3.5.0.Final | ./deputy deps-resolved | ./deputy --quick resolved-transitive | ./deputy resolved-highest-versions | sort > highest_only #put only the highest versions found in a file
 
+.. code-block:: bash
+
   $echo io.netty:netty:3.5.0.Final | ./deputy deps-resolved | ./deputy resolved-transitive | sort > all  #put all versions in a file
+
+.. code-block:: bash
 
   $diff all highest_only |  grep "< " | sed 's/< //' | cut -d '|' -f 1 | uniq
 
@@ -74,7 +88,9 @@ Cookbook
     </resolvers>
   </ivysettings>
 
+
 .. code-block:: bash
+
   $echo play:play_2.9.1:2.0.3 | ./deputy --ivy-settings=ivy-settings.xml --resolver=typesafe deps-resolved | ./deputy --ivy-settings=ivy-settings.xml --resolver=typesafe resolved-transitive |  ./deputy resolved-treeprint
 
   
