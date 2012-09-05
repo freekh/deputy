@@ -7,13 +7,13 @@ helps you inspect ivy and maven dependencies. Continue reading to learn more!
 
 Installation
 ==============
-NOW: run sbt, compile then add this folder on the PATH
+RIGHT NOW: compile using sbt then add this folder on the PATH
 
 COMING: Install `conscript`_ and then do:
 
 .. code-block:: bash
 
-   cs freekh/deputy
+   #WILL NOT WORK: cs freekh/deputy
 
 Getting started
 ================
