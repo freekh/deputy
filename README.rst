@@ -24,8 +24,8 @@ To learn more about available commands and options, run:
   deputy --help
 
 
-How it works
-================
+Working with Deputy
+==========================
 Deputy works by piping in a format then emitting a new one. You can
 also do different operations on input in different formats. 
 
@@ -59,17 +59,17 @@ Cookbook
 
 .. code-block:: bash
 
-  echo io.netty:netty:3.5.0.Final | ./deputy deps-resolved | ./deputy resolved-transitive | ./deputy resolved-treeprint
+  echo io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy resolved-transitive | deputy resolved-treeprint
 
 3. Print out  dependencies that has pruned because there exists a higher version
 
 .. code-block:: bash
 
-  echo io.netty:netty:3.5.0.Final | ./deputy deps-resolved | ./deputy --quick resolved-transitive | ./deputy resolved-highest-versions | sort > highest_only #put only the highest versions found in a file
+  echo io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy --quick resolved-transitive | deputy resolved-highest-versions | sort > highest_only #put only the highest versions found in a file
 
 .. code-block:: bash
 
-  echo io.netty:netty:3.5.0.Final | ./deputy deps-resolved | ./deputy resolved-transitive | sort > all  #put all versions in a file
+  echo io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy resolved-transitive | sort > all  #put all versions in a file
 
 .. code-block:: bash
 
@@ -89,7 +89,7 @@ Cookbook
 
 .. code-block:: bash
 
-  echo play:play_2.9.1:2.0.3 | ./deputy --ivy-settings=ivy-settings.xml --resolver=typesafe deps-resolved | ./deputy --ivy-settings=ivy-settings.xml --resolver=typesafe resolved-transitive |  ./deputy resolved-treeprint
+  echo play:play_2.9.1:2.0.3 | deputy --ivy-settings=ivy-settings.xml --resolver=typesafe deps-resolved | deputy --ivy-settings=ivy-settings.xml --resolver=typesafe resolved-transitive |  deputy resolved-treeprint
 
   
 Design and scope
