@@ -15,14 +15,6 @@ COMING: Install `conscript`_ and then do:
 
    #WILL NOT WORK: cs freekh/deputy
 
-Getting started
-================
-To learn more about available commands and options, run:
-
-.. code-block:: bash
-
-  deputy --help
-
 
 Working with Deputy
 ==========================
@@ -44,6 +36,13 @@ input.
 If the last name is of another type, it is a transformation to this type, if not the operation will output the same type.
 
 
+Getting started
+================
+To learn more about available commands and options, run:
+
+.. code-block:: bash
+
+  deputy --help
 
 
 Cookbook
@@ -61,7 +60,7 @@ Cookbook
 
   echo io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy resolved-transitive | deputy resolved-treeprint
 
-3. Print out  dependencies that has pruned because there exists a higher version
+3. Print out  dependencies that has been pruned because there exists a higher version
 
 .. code-block:: bash
 

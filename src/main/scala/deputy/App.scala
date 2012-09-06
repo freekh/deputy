@@ -24,12 +24,24 @@ class App extends xsbti.AppMain {
 
 object Deputy {
   val help = """          
-           ______      ____    _____     __    __    _________   __      __ 
-          | _____\   / ____|  |  __ \   | |    | |  |___   ___|  \ \    / /
-          | |   | |  | |___   | |__| |  | |    | |      |  |       \ \ / /
-          | |   | |  | |___|  |   __/   | |    | |      |  |        \ Y / 
-          | |___| |  | |___   |  |      \  \__/  /      |  |         | |
-          |______/   \_____|  |__|       \______/       |__|         |_|
+           ______     _____    _____     __    __    _________   __      __ 
+          | ____ \   | ____|  |  __ \   | |    | |  |___   ___|  \ \    / /
+          | |   \ |  | |___   | |__| |  | |    | |      | |        \ \ / /
+          | |   | |  | |___|  |  ___/   | |    | |      | |         \ Y / 
+          | |___/ |  | |___   | |       \  \__/  /      | |          | |
+          |______/   |_____|  |_|        \______/       |_|          |_|
+        
+               .
+              ,O,
+             ,OOO,
+        'ooooO   Oooooo'
+         `O  DEPUTY  O`
+           `O       O`
+            OOOO'OOOO
+           OOO'   'OOO
+          O'         'O
+
+    
 SYNOPSIS:
   Deputy stands for dependency utility and is a command line tool that helps you inspect ivy and maven dependencies.
   It works by piping from one command to the next.
