@@ -98,11 +98,9 @@ class DependencyResolver(settings: IvySettings, quick: Boolean, grepExprs: List[
     val resolvedDeps = for {
       resolver <- getRepositoryResolvers(settings.getResolvers.toList).distinct if useResolver(resolver.getName)
       pattern <- resolver.getIvyPatterns.map(_.toString)
-      isPom = resolver.isM2compatible
+      isPom <- List(resolver.isM2compatible, false).distinct
     } yield {
-      val moduleType = if (isPom) DependencyTypes.pom else DependencyTypes.ivy
-
-      val (module, artifact) = if (isPom) {
+      val (module, artifact) = if (resolver.isM2compatible) {
         val pomModule = ModuleRevisionId.newInstance(moduleOrg.replace(".", "/"), moduleName, revision) //TODO: / works on windows?
         pomModule -> DefaultArtifact.newPomArtifact(pomModule, dummyPubDate)
       } else {
@@ -134,6 +132,7 @@ class DependencyResolver(settings: IvySettings, quick: Boolean, grepExprs: List[
         val path = IvyPatternHelper.substituteToken(partiallyResolvedPattern,
           IvyPatternHelper.REVISION_KEY, currentRev)
         val newDep = Dependency(moduleOrg, moduleName, currentRev)
+        val moduleType = if (path.endsWith(DependencyTypes.pom)) DependencyTypes.pom else DependencyTypes.ivy
         ResolvedDep(newDep, moduleType, resolver.getName, scopes, path, parentPath)
       }
 
