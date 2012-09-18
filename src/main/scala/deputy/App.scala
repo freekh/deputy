@@ -23,24 +23,16 @@ class App extends xsbti.AppMain {
 }
 
 object Deputy {
-  val help = """          
-           ______     _____    _____     __    __    _________   __      __ 
-          | ____ \   | ____|  |  __ \   | |    | |  |___   ___|  \ \    / /
-          | |   \ |  | |___   | |__| |  | |    | |      | |        \ \ / /
-          | |   | |  | |___|  |  ___/   | |    | |      | |         \ Y / 
-          | |___/ |  | |___   | |       \  \__/  /      | |          | |
-          |______/   |_____|  |_|        \______/       |_|          |_|
-        
-               .
-              ,O,
-             ,OOO,
-        'ooooO   Oooooo'
-         `O  DEPUTY  O`
-           `O       O`
-            OOOO'OOOO
-           OOO'   'OOO
-          O'         'O
-
+  val help = """    
+                             .
+                            ,O,
+                           ,OOO,
+                      'ooooO   Oooooo'
+                       `O DEPUTY! O` 
+                         `O     O` 
+                         OOOO'OOOO
+                        OOO'   'OOO
+                       O'         'O                     art from:?
     
 SYNOPSIS:
   Deputy stands for dependency utility and is a command line tool that helps you inspect ivy and maven dependencies.
@@ -50,25 +42,30 @@ USAGE:
   deputy <options> <command>
 
 EXAMPLE:
-  # Prints out a tree of ALL dependencies (does not prune any version) that fredrikekholdt:deputy:0.1.3 transitively depends on
-  echo fredrikekholdt:deputy:0.1.3 | deputy deps-resolved | deputy resolved-transtive | deputy resolved-results | deputy results-download-file
+  # Prints out a tree of ALL dependencies (does not prune any version) that fredrik.ekholdt:deputy:0.1.3 transitively depends on
+  echo fredrik.ekholdt:deputy:0.1.3 | deputy deps-resolved | deputy resolved-transtive | deputy resolved-results | deputy results-download-file
     
 COMMANDS:
-  deps-resolved              transform from deps (format: org:name:version) to resolved (format: <org:name:version>|<type>|<resolver>|<conf>|<path>|<resolved-from>|)
+  deps-resolved              transform from deps (format: org:name:version) to resolved (format: 
+                             <org:name:version>|<type>|<resolver>|<conf>|<path>|<resolved-from>|)
 
   resolved-transitive        transitively find dependencies
-  resolved-highest-versions  prune away dependencies where there exists a higher version        
+  resolved-highest-versions  remove dependencies where there exists a higher version        
   resolved-treeprint         print a tree representing the dependencies
-  resolved-results           transform from resolved (format: <org:name:version>|<type>|<resolver>|<conf>|<path>|<resolved-from>|) to results (format:<org:name:version>#<type>=<uri>,<uri>,...)
+  resolved-results           transform from resolved (format: 
+                             <org:name:version>|<type>|<resolver>|<conf>|<path>|<resolved-from>|) 
+                             to results (format:<org:name:version>#<type>=<uri>,<uri>,...)
   
-  results-download-file      download results and emit filename 
+  results-download-file      download results and print filename 
     
 OPTIONS:
   --quick                    skip lower versioned dependencies that ivy also would skip when resolving
   --resolver=<RESOLVERNAME>  use only the resolver RESOLVERNAME 
   --ivy-settings=<FILE>      use the xml ivy settings file in FILE. Defaults to: ivy-settings.xml
-  --grep=<REGEXP>            use only dependencies (and the ones below) that matches REGEXP
-  --grep-v=<REGEXP>          prune away dependencies (and the ones below) that matches REGEXP
+  --grep=<REGEXP>            use only dependencies (and the ones below in the dependency graph) 
+                             that matches REGEXP
+  --grep-v=<REGEXP>          prune away dependencies (and the ones below in the dependency graph) 
+                             that matches REGEXP
     
   --nocolors                 do not use colors
   --version                  prints version and exits
