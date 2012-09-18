@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="Deputy : (dep)endency (ut)ilit(y)" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Deputy</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/freekh/deputy">View on GitHub</a>
+
+          <h1 id="project_title">Deputy</h1>
+          <h2 id="project_tagline">(dep)endency (ut)ilit(y)</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/freekh/deputy/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/freekh/deputy/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>What is deputy?</h1>
+
+<p>Deputy is short for dependency utility. It is a command line tool that
+helps you inspect ivy and maven dependencies. Continue reading to learn more!</p>
+
+<h1>Installation</h1>
+
+<p>RIGHT NOW: compile using sbt then add this folder on the PATH</p>
+
+<p>COMING: Install <code>conscript</code>_ and then do:</p>
+
+<p>.. code-block:: bash</p>
+
+<p>#WILL NOT WORK: cs freekh/deputy</p>
+
+<h1>Working with Deputy</h1>
+
+<p>Deputy works by piping in a format then emitting a new one. You can
+also do different operations on input in different formats. </p>
+
+<p>There are 4 formats in deputy on: </p>
+
+<ol>
+<li><p>deps:  Dependencies are your input and are in the format: :: e.g.: commons-cli:commons-cli:1.0</p></li>
+<li><p>resolved: This is a resolved dependency with more information</p></li>
+<li><p>results: This is an aggregated list of resolved deps which can be used to quickly download</p></li>
+<li><p>file: the absolute file path</p></li>
+</ol><p><strong>NOTICE</strong>: All commands start with the name of the type it gets as an
+input. 
+If the last name is of another type, it is a transformation to this type, if not the operation will output the same type.</p>
+
+<h1>Getting started</h1>
+
+<p>To learn more about available commands and options, run:</p>
+
+<p>.. code-block:: bash</p>
+
+<p>deputy --help</p>
+
+<h1>Cookbook</h1>
+
+<ol>
+<li>Download the dependencies you need to compile from io.netty:netty:3.5.0.Final</li>
+</ol><p>.. code-block:: bash</p>
+
+<p>echo io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy --quick --grep="|.<em>compile.</em>|" resolved-transitive | deputy resolved-highest-versions  | deputy resolved-results | grep -v "#pom" | grep -v "#ivy" | deputy results-download-file</p>
+
+<ol>
+<li>Inspect all dependencies io.netty:netty:3.5.0.Final by printing them out in a tree</li>
+</ol><p>.. code-block:: bash</p>
+
+<p>echo io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy resolved-transitive | deputy resolved-treeprint</p>
+
+<ol>
+<li>Print out  dependencies that has been pruned because there exists a higher version</li>
+</ol><p>.. code-block:: bash</p>
+
+<p>echo io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy --quick resolved-transitive | deputy resolved-highest-versions | sort &gt; highest_only #put only the highest versions found in a file</p>
+
+<p>.. code-block:: bash</p>
+
+<p>echo io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy resolved-transitive | sort &gt; all  #put all versions in a file</p>
+
+<p>.. code-block:: bash</p>
+
+<p>diff all highest_only |  grep "&lt; " | sed 's/&lt; //' | cut -d '|' -f 1 | uniq</p>
+
+<ol>
+<li>Print all dependencies needed to compile with play:play_2.9.1:2.0.3 using a resolver from the ivy-settings.xml file below:</li>
+</ol><p>.. code-block:: xml </p>
+
+<p></p>
+
+<p>.. code-block:: bash</p>
+
+<p>echo play:play_2.9.1:2.0.3 | deputy --ivy-settings=ivy-settings.xml --resolver=typesafe deps-resolved | deputy --ivy-settings=ivy-settings.xml --resolver=typesafe resolved-transitive |  deputy resolved-treeprint</p>
+
+<h1>Design and scope</h1>
+
+<h2>What does it not do?</h2>
+
+<p>It does not build. Deputy handles dependencies. Not only does it NOT build, it does not do anything else either - it is just a utility for dependencies. </p>
+
+<p>It is not monolitic. If you do not like that you have to perform several commands to get something interesting, you better look for some alternatives.  SBT is a great tool if you want to have a lot of control and build lots of stuff in one command. </p>
+
+<h2>How does it work?</h2>
+
+<p>Deputy is designed to work by piping the output of a command into another. </p>
+
+<p>Typically you will start with some coordinates (describing the dependencies) and end up with a list of downloaded jars.</p>
+
+<p>It is up to you to define what will happen between this though or if you want to stop in between.</p>
+
+<p>This makes it easy to see what goes out and in between each command and thus makes it easy to see what happens.</p>
+
+<p>The problem with this is approach is that you have to know what you want.</p>
+
+<h2>Why was it created?</h2>
+
+<p>When using maven and ivy I have too  often encountered issues where jars are unexpectedly put on your classpath or dependencies have failed without being able to easily see what is going on.</p>
+
+<p>To make matters worse some tools fail before telling you what it was doing and why it was doing it.</p>
+
+<p>And that is the simple explanation: deputy is meant to help you to be explicit about what is going on. </p>
+
+<h2>What could  you use it for?</h2>
+
+<p>You are welcome to use deputy for whatever you like, but here are some use cases it actually fits:</p>
+
+<ol>
+<li><p>Whenever you just have some dependencies in your project: Most of the time, I just want to have the jars that I depend on, but these cannot be put under a distributed version control system. A compromise   can therefore be to have a list of urls you can download the jars you need and a tool that downloads them SUPER quick. This is something deputy will help you with.</p></li>
+<li><p>Debugging ivy: for some reason your code is getting AbstractMethodErrors. You see your classpath has some jars it shouldn't have but why? With deputy you can easily figure out what is failing and why you were doing it in the first place.</p></li>
+<li><p>Easily inspecting what jars and artifacts your project depends on.</p></li>
+<li><p>Handle dependencies in an extremely  stable manner: base your project on links to the jars, links you know work and all surprises are gone. Adding the md5 sums for even more stability also is something that you can do.</p></li>
+</ol><h1>LICENSE</h1>
+
+<p>This code is open source software licensed under the <code>Apache 2.0 License</code>_. Feel free to use it accordingly.</p>
+
+<h1>THANKS</h1>
+
+<p>Dean Thompson for: coming up the name deputy; the way commands look; and the way the tool works :)</p>
+
+<p>Various Typesafe people for hearing me out and the encouragements. </p>
+
+<p>.. _<code>conscript</code>: <a href="https://github.com/n8han/conscript/">https://github.com/n8han/conscript/</a>
+.. _<code>zinc</code>: <a href="https://github.com/typesafehub/zinc/">https://github.com/typesafehub/zinc/</a>
+.. _<code>Apache 2.0 License</code>: <a href="http://www.apache.org/licenses/LICENSE-2.0.html">http://www.apache.org/licenses/LICENSE-2.0.html</a></p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Deputy maintained by <a href="https://github.com/freekh">freekh</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
