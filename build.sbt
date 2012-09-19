@@ -2,6 +2,8 @@ seq(conscriptSettings :_*)
 
 organization := "deputy"
 
+scalaVersion := "2.9.2"
+
 name := "deputy"
 
 version <<= baseDirectory {  baseDirectory =>
