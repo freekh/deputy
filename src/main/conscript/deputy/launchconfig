@@ -1,5 +1,5 @@
 [app]
-  version: 0.2.0.3
+  version: 0.2.0.4
   org: deputy
   name: deputy
   class: deputy.App
@@ -8,5 +8,5 @@
 [repositories]
   local
   maven-central
-  typesafe-releases: http://repo.typesafe.com/typesafe/ivy-releases
+  typesafe-releases: http://repo.typesafe.com/typesafe/releases
   gh-pages: http://freekh.github.com/deputy/repository
