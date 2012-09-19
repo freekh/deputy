@@ -16,6 +16,6 @@ java -Ddeputy.commit=$commit -Xms512M -Xmx1536M -Xss1M -XX:+CMSClassUnloadingEna
 
 git add $(git ls-files -o --exclude-standard)
 
-echo git commit -m "$commit"
+git commit -m "$commit"
 
-echo "run git push"
+git push
