@@ -1,14 +1,14 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>org.deputy</groupId>
+    <groupId>deputy</groupId>
     <artifactId>deputy_2.9.1</artifactId>
     <packaging>jar</packaging>
     <description>deputy</description>
-    <version>0.1.3</version>
+    <version>0.1.5</version>
     <name>deputy</name>
     <organization>
-        <name>org.deputy</name>
+        <name>deputy</name>
     </organization>
     <dependencies>
         <dependency>
