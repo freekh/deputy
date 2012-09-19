@@ -201,6 +201,9 @@ COOKBOOK:
         0
       } else if (command == downloadResultsCommand) {
         Results.download(commandLineLoop(List()).map(Result.parse))
+        actorSystem.shutdown()
+        Http.shutdown
+    
         0
       } else {
         System.err.println("Unknown command: " + command + ". Type deputy --help to learn about the commands.")
@@ -210,8 +213,6 @@ COOKBOOK:
       System.err.println("You must specify a command! Type deputy --help to learn about the commands.")
       -1
     }
-    actorSystem.shutdown()
-    Http.shutdown
     res
   }
   /** Standard runnable class entrypoint */
