@@ -18,26 +18,7 @@ import dispatch.Http
 /** The launched conscript entry point */
 class App extends xsbti.AppMain {
   def run(config: xsbti.AppConfiguration) = {
-     if (config.arguments.contains("--version")) {
-      val lcFile = new File("src/main/conscript/deputy/launchconfig")
-      val LcVersionExpr = """^\W+version:(.*?)$""".r
-      val lcLines = io.Source.fromFile(lcFile).getLines.toList
-      val appLines = {
-        val appElem = lcLines.find(_.trim() == "[app]").getOrElse( throw new Exception("No [app] in launchconfig?") )
-        val appElems = lcLines.slice(lcLines.indexOf(appElem), lcLines.size)
-        val endSlice = appElems.slice(1, appElems.size).find(_.trim().startsWith("[")).map( a => lcLines.indexOf(a) ).getOrElse(lcLines.size)
-        appElems.slice(0, endSlice)
-      }
-      val versions = appLines.flatMap(_ match {
-        case LcVersionExpr(version) => List(version.trim())
-        case _ => List.empty
-      })
-      if (versions.size != 1) throw new Exception("Could not find exactly one version in " + lcFile + "! Found : " + versions)
-      Deputy.out.println(versions.head)
-      System.exit(-1)
-    }
-    
-    Exit(Deputy.run(config.arguments))
+     Exit(Deputy.run(config.arguments))
   }
 }
 
@@ -105,11 +86,10 @@ COOKBOOK:
   val exitOnFail = true
   def fail(s: String) = {
     System.err.println(s)
-    if (exitOnFail) System.exit(-1)
-    throw new Exception() //return type
+    throw new Exception("Catastrophic failure!") //return type
   }
 
-  lazy val actorSystem = ActorSystem("deputy")
+  val actorSystem = ActorSystem("deputy")
 
   /**
    * Shared by the launched version and the runnable version,
@@ -126,9 +106,26 @@ COOKBOOK:
     }
 
     //TODO: FIX ENTIRE COMMAND LINE OPTION PARSING - THIS SUCKS
+    if (args.contains("--version")) {
+      val lcFile = new File("src/main/conscript/deputy/launchconfig")
+      val LcVersionExpr = """^\W+version:(.*?)$""".r
+      val lcLines = io.Source.fromFile(lcFile).getLines.toList
+      val appLines = {
+        val appElem = lcLines.find(_.trim() == "[app]").getOrElse( throw new Exception("No [app] in launchconfig?") )
+        val appElems = lcLines.slice(lcLines.indexOf(appElem), lcLines.size)
+        val endSlice = appElems.slice(1, appElems.size).find(_.trim().startsWith("[")).map( a => lcLines.indexOf(a) ).getOrElse(lcLines.size)
+        appElems.slice(0, endSlice)
+      }
+      val versions = appLines.flatMap(_ match {
+        case LcVersionExpr(version) => List(version.trim())
+        case _ => List.empty
+      })
+      if (versions.size != 1) throw new Exception("Could not find exactly one version in " + lcFile + "! Found : " + versions)
+      Deputy.out.println(versions.head)
+    }
+    
     if (args.contains("--help") || args.contains("-h")) {
       Deputy.out.println(help)
-      System.exit(0)
     }
 
     if (args.contains("--debug")) {
@@ -188,7 +185,7 @@ COOKBOOK:
         val ivySettingsFile = new File(ivySettingsPath)
         if (!ivySettingsFile.isFile) {
           System.err.println("Cannot find ivy settings xml file in path: " + ivySettingsPath + " ...") //TODO: throw expectedexception instead?
-          System.exit(-1)
+          //System.exit(-1)
         } else {
           ivy.configure(ivySettingsFile)
         }
