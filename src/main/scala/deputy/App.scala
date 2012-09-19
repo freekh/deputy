@@ -109,7 +109,7 @@ COOKBOOK:
     throw new Exception() //return type
   }
 
-  val actorSystem = ActorSystem("deputy")
+  lazy val actorSystem = ActorSystem("deputy")
 
   /**
    * Shared by the launched version and the runnable version,
