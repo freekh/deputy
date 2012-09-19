@@ -4,7 +4,23 @@ organization := "deputy"
 
 name := "deputy"
 
-version := "0.1.3"
+version <<= baseDirectory {  baseDirectory =>
+  val lcFile = baseDirectory / "src" / "main" / "conscript" / "deputy" / "launchconfig"
+  val LcVersionExpr = """^\W+version:(.*?)$""".r
+  val lcLines = io.Source.fromFile(lcFile).getLines.toList
+  val appLines = {
+    val appElem = lcLines.find(_.trim() == "[app]").getOrElse( throw new Exception("No [app] in launchconfig?") )
+    val appElems = lcLines.slice(lcLines.indexOf(appElem), lcLines.size)
+    val endSlice = appElems.slice(1, appElems.size).find(_.trim().startsWith("[")).map( a => lcLines.indexOf(a) ).getOrElse(lcLines.size)
+    appElems.slice(0, endSlice)
+  }
+  val versions = appLines.flatMap(_ match {
+    case LcVersionExpr(version) => List(version.trim())
+    case _ => List.empty
+  })
+  if (versions.size != 1) throw new Exception("Could not find exactly one version in " + lcFile + "! Found : " + versions)
+  versions.head
+}
 
 resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
  

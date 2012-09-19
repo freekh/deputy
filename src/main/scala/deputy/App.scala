@@ -28,11 +28,11 @@ object Deputy {
                             ,O,
                            ,OOO,
                       'ooooO   Oooooo'
-                       `O DEPUTY! O` 
-                         `O     O` 
+                       `O DEPUTY! O`
+                         `O     O`
                          OOOO'OOOO
                         OOO'   'OOO
-                       O'         'O                     art from:?
+                       O'         'O
     
 SYNOPSIS:
   Deputy stands for dependency utility and is a command line tool that helps you inspect ivy and maven dependencies.
@@ -108,8 +108,22 @@ COOKBOOK:
 
     //TODO: FIX ENTIRE COMMAND LINE OPTION PARSING - THIS SUCKS
     if (args.contains("--version")) {
-      Deputy.out.println("0.1.3") //TOOD: git hook here and in print
-      System.exit(0)
+      val lcFile = new File("src/main/conscript/deputy/launchconfig")
+      val LcVersionExpr = """^\W+version:(.*?)$""".r
+      val lcLines = io.Source.fromFile(lcFile).getLines.toList
+      val appLines = {
+        val appElem = lcLines.find(_.trim() == "[app]").getOrElse( throw new Exception("No [app] in launchconfig?") )
+        val appElems = lcLines.slice(lcLines.indexOf(appElem), lcLines.size)
+        val endSlice = appElems.slice(1, appElems.size).find(_.trim().startsWith("[")).map( a => lcLines.indexOf(a) ).getOrElse(lcLines.size)
+        appElems.slice(0, endSlice)
+      }
+      val versions = appLines.flatMap(_ match {
+        case LcVersionExpr(version) => List(version.trim())
+        case _ => List.empty
+      })
+      if (versions.size != 1) throw new Exception("Could not find exactly one version in " + lcFile + "! Found : " + versions)
+      Deputy.out.println(versions.head)
+      System.exit(-1)
     }
 
     if (args.contains("--help") || args.contains("-h")) {
