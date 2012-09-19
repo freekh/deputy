@@ -8,4 +8,6 @@
 [repositories]
   local
   scala-tools-releases
+  typesafe-releases: http://repo.typesafe.com/typesafe/ivy-releases
+  gh-pages: http://freekh.github.com/deputy/repository
   maven-central
