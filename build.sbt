@@ -1,6 +1,6 @@
 seq(conscriptSettings :_*)
 
-organization := "org.deputy"
+organization := "deputy"
 
 name := "deputy"
 
