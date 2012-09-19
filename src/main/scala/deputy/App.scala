@@ -106,14 +106,7 @@ COOKBOOK:
     }
 
     //TODO: FIX ENTIRE COMMAND LINE OPTION PARSING - THIS SUCKS
-    if (args.contains("--version")) {
-      
-      Deputy.out.println(BuildInfo.version)
-    }
-    
-    if (args.contains("--help") || args.contains("-h")) {
-      Deputy.out.println(help)
-    }
+
 
     if (args.contains("--debug")) {
       debugMode = true
@@ -181,7 +174,13 @@ COOKBOOK:
     }
 
     val res = args.lastOption.map(command => {
-      if (command == resolveCommand) {
+      if (args.contains("--version")) {
+        Deputy.out.println(BuildInfo.version)
+        0
+      }else if (args.contains("--help") || args.contains("-h")) {
+        Deputy.out.println(help)
+        0
+      }else if (command == resolveCommand) {
         (new ForkJoiner(ivy.getSettings, commandLineLoop(List()), resolverName, quick, grepExprs)).resolveDependencies()
         0
       } else if (command == explodeCommand) {
