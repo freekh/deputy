@@ -18,6 +18,25 @@ import dispatch.Http
 /** The launched conscript entry point */
 class App extends xsbti.AppMain {
   def run(config: xsbti.AppConfiguration) = {
+     if (config.arguments.contains("--version")) {
+      val lcFile = new File("src/main/conscript/deputy/launchconfig")
+      val LcVersionExpr = """^\W+version:(.*?)$""".r
+      val lcLines = io.Source.fromFile(lcFile).getLines.toList
+      val appLines = {
+        val appElem = lcLines.find(_.trim() == "[app]").getOrElse( throw new Exception("No [app] in launchconfig?") )
+        val appElems = lcLines.slice(lcLines.indexOf(appElem), lcLines.size)
+        val endSlice = appElems.slice(1, appElems.size).find(_.trim().startsWith("[")).map( a => lcLines.indexOf(a) ).getOrElse(lcLines.size)
+        appElems.slice(0, endSlice)
+      }
+      val versions = appLines.flatMap(_ match {
+        case LcVersionExpr(version) => List(version.trim())
+        case _ => List.empty
+      })
+      if (versions.size != 1) throw new Exception("Could not find exactly one version in " + lcFile + "! Found : " + versions)
+      Deputy.out.println(versions.head)
+      System.exit(-1)
+    }
+    
     Exit(Deputy.run(config.arguments))
   }
 }
@@ -107,25 +126,6 @@ COOKBOOK:
     }
 
     //TODO: FIX ENTIRE COMMAND LINE OPTION PARSING - THIS SUCKS
-    if (args.contains("--version")) {
-      val lcFile = new File("src/main/conscript/deputy/launchconfig")
-      val LcVersionExpr = """^\W+version:(.*?)$""".r
-      val lcLines = io.Source.fromFile(lcFile).getLines.toList
-      val appLines = {
-        val appElem = lcLines.find(_.trim() == "[app]").getOrElse( throw new Exception("No [app] in launchconfig?") )
-        val appElems = lcLines.slice(lcLines.indexOf(appElem), lcLines.size)
-        val endSlice = appElems.slice(1, appElems.size).find(_.trim().startsWith("[")).map( a => lcLines.indexOf(a) ).getOrElse(lcLines.size)
-        appElems.slice(0, endSlice)
-      }
-      val versions = appLines.flatMap(_ match {
-        case LcVersionExpr(version) => List(version.trim())
-        case _ => List.empty
-      })
-      if (versions.size != 1) throw new Exception("Could not find exactly one version in " + lcFile + "! Found : " + versions)
-      Deputy.out.println(versions.head)
-      System.exit(-1)
-    }
-
     if (args.contains("--help") || args.contains("-h")) {
       Deputy.out.println(help)
       System.exit(0)
