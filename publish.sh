@@ -18,4 +18,6 @@ git add $(git ls-files -o --exclude-standard)
 
 git commit -m "$commit"
 
-git push
+read -p "Press [Enter] key to push changes..."
+ 
+git push origin gh-pages
