@@ -12,9 +12,7 @@ import scala.annotation.tailrec
 import scala.util.matching.Regex
 
 class ForkJoiner(settings: IvySettings, lines: Seq[String], resolverName: Option[String], quick: Boolean, grepExpr: List[Regex]) {
-  val actorSystem = ActorSystem("deputy")
-
-  val printer = actorSystem.actorOf(Props(new PrinterActor(Deputy.out)))
+  val printer = Deputy.actorSystem.actorOf(Props(new PrinterActor(Deputy.out)))
 
   val parLevel = 100 //TODO: command line option
   collection.parallel.ForkJoinTasks.defaultForkJoinPool.setParallelism(parLevel)

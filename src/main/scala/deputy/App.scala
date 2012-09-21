@@ -88,12 +88,8 @@ COOKBOOK:
     System.err.println(s)
     throw new Exception("Catastrophic failure!") //return type
   }
-
   
-  lazy val actorSystem = {
-    val cl = ActorSystem.getClass.getClassLoader 
-    ActorSystem("deputy", com.typesafe.config.ConfigFactory.load(cl), cl)
-  }
+  val actorSystem = ActorSystem("deputy", com.typesafe.config.ConfigFactory.load("akka.conf"), ActorSystem.getClass.getClassLoader)
 
   /**
    * Shared by the launched version and the runnable version,
