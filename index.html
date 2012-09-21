@@ -1,36 +1,44 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-
   <head>
-    <meta charset='utf-8' />
-    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
-    <meta name="description" content="Deputy : (dep)endency (ut)ilit(y)" />
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Deputy by freekh</title>
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script src="javascripts/main.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
-
-    <title>Deputy</title>
   </head>
-
   <body>
 
-    <!-- HEADER -->
-    <div id="header_wrap" class="outer">
-        <header class="inner">
-          <a id="forkme_banner" href="https://github.com/freekh/deputy">View on GitHub</a>
+      <header>
+        <h1>Deputy</h1>
+        <p>(dep)endency (ut)ilit(y)</p>
+      </header>
 
-          <h1 id="project_title">Deputy</h1>
-          <h2 id="project_tagline">(dep)endency (ut)ilit(y)</h2>
+      <div id="banner">
+        <span id="logo"></span>
 
-            <section id="downloads">
-              <a class="zip_download_link" href="https://github.com/freekh/deputy/zipball/master">Download this project as a .zip file</a>
-              <a class="tar_download_link" href="https://github.com/freekh/deputy/tarball/master">Download this project as a tar.gz file</a>
-            </section>
-        </header>
-    </div>
+        <a href="https://github.com/freekh/deputy" class="button fork"><strong>View On GitHub</strong></a>
+        <div class="downloads">
+          <span>Downloads:</span>
+          <ul>
+            <li><a href="https://github.com/freekh/deputy/zipball/master" class="button">ZIP</a></li>
+            <li><a href="https://github.com/freekh/deputy/tarball/master" class="button">TAR</a></li>
+          </ul>
+        </div>
+      </div><!-- end banner -->
 
-    <!-- MAIN CONTENT -->
-    <div id="main_content_wrap" class="outer">
-      <section id="main_content" class="inner">
+    <div class="wrapper">
+      <nav>
+        <ul></ul>
+      </nav>
+      <section>
         <h1>What is deputy?</h1>
 
 <p>Deputy is short for dependency utility. It is a command line tool that
@@ -38,13 +46,10 @@ helps you inspect ivy and maven dependencies. Continue reading to learn more!</p
 
 <h1>Installation</h1>
 
-<p>RIGHT NOW: compile using sbt then add this folder on the PATH</p>
+<p>Install <a href="https://github.com/n8han/conscript/">conscript</a> and then do:</p>
 
-<p>COMING: Install <code>conscript</code>_ and then do:</p>
-
-<p>.. code-block:: bash</p>
-
-<p>#WILL NOT WORK: cs freekh/deputy</p>
+<div class="highlight"><pre>cs freekh/deputy
+</pre></div>
 
 <h1>Working with Deputy</h1>
 
@@ -66,49 +71,56 @@ If the last name is of another type, it is a transformation to this type, if not
 
 <p>To learn more about available commands and options, run:</p>
 
-<p>.. code-block:: bash</p>
-
-<p>deputy --help</p>
+<div class="highlight"><pre>deputy --help
+</pre></div>
 
 <h1>Cookbook</h1>
 
 <ol>
-<li>Download the dependencies you need to compile from io.netty:netty:3.5.0.Final</li>
-</ol><p>.. code-block:: bash</p>
+<li>
+<p>Download the dependencies you need to compile from io.netty:netty:3.5.0.Final:</p>
 
-<p>echo io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy --quick --grep="|.<em>compile.</em>|" resolved-transitive | deputy resolved-highest-versions  | deputy resolved-results | grep -v "#pom" | grep -v "#ivy" | deputy results-download-file</p>
+<div class="highlight"><pre><span class="nb">echo </span>io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy --quick --grep<span class="o">=</span><span class="s2">"\|.*compile.*\|"</span> resolved-transitive | deputy resolved-highest-versions  | deputy resolved-results | grep -v <span class="s2">"#pom"</span> | grep -v <span class="s2">"#ivy"</span> | deputy results-download-file
+</pre></div>
+</li>
+<li>
+<p>Inspect all dependencies io.netty:netty:3.5.0.Final by printing them out in a tree</p>
 
-<ol>
-<li>Inspect all dependencies io.netty:netty:3.5.0.Final by printing them out in a tree</li>
-</ol><p>.. code-block:: bash</p>
+<div class="highlight"><pre><span class="nb">echo </span>io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy resolved-transitive | deputy resolved-treeprint
+</pre></div>
+</li>
+<li>
+<p>Print out  dependencies that has been pruned because there exists a higher version
+This will give you all the highest versions of a dependency:</p>
 
-<p>echo io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy resolved-transitive | deputy resolved-treeprint</p>
+<div class="highlight"><pre><span class="nb">echo </span>io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy --quick resolved-transitive | deputy resolved-highest-versions | sort &gt; highest_only <span class="c">#put only the highest versions found in a file</span>
+</pre></div>
 
-<ol>
-<li>Print out  dependencies that has been pruned because there exists a higher version</li>
-</ol><p>.. code-block:: bash</p>
+<p>This will give you ALL the versions:</p>
 
-<p>echo io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy --quick resolved-transitive | deputy resolved-highest-versions | sort &gt; highest_only #put only the highest versions found in a file</p>
+<div class="highlight"><pre><span class="nb">echo </span>io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy resolved-transitive | sort &gt; all  <span class="c">#put all versions in a file</span>
+</pre></div>
 
-<p>.. code-block:: bash</p>
+<p>Then compare:</p>
 
-<p>echo io.netty:netty:3.5.0.Final | deputy deps-resolved | deputy resolved-transitive | sort &gt; all  #put all versions in a file</p>
+<div class="highlight"><pre>diff all highest_only |  grep <span class="s2">"&lt; "</span> | sed <span class="s1">'s/&lt; //'</span> | cut -d <span class="s1">'|'</span> -f 1 | uniq
+</pre></div>
+</li>
+<li>
+<p>Print all dependencies needed to compile with play:play_2.9.1:2.0.3 using a resolver from the ivy-settings.xml file below:</p>
 
-<p>.. code-block:: bash</p>
+<div class="highlight"><pre><span class="nt">&lt;ivysettings&gt;</span>
+  <span class="nt">&lt;settings</span> <span class="na">defaultResolver=</span><span class="s">"typesafe"</span><span class="nt">/&gt;</span>
+  <span class="nt">&lt;resolvers&gt;</span>
+    <span class="nt">&lt;ibiblio</span> <span class="na">name=</span><span class="s">"typesafe"</span> <span class="na">m2compatible=</span><span class="s">"true"</span> <span class="na">root=</span><span class="s">"http://repo.typesafe.com/typesafe/releases/"</span><span class="nt">/&gt;</span>
+  <span class="nt">&lt;/resolvers&gt;</span>
+<span class="nt">&lt;/ivysettings&gt;</span>
+</pre></div>
 
-<p>diff all highest_only |  grep "&lt; " | sed 's/&lt; //' | cut -d '|' -f 1 | uniq</p>
-
-<ol>
-<li>Print all dependencies needed to compile with play:play_2.9.1:2.0.3 using a resolver from the ivy-settings.xml file below:</li>
-</ol><p>.. code-block:: xml </p>
-
-<p></p>
-
-<p>.. code-block:: bash</p>
-
-<p>echo play:play_2.9.1:2.0.3 | deputy --ivy-settings=ivy-settings.xml --resolver=typesafe deps-resolved | deputy --ivy-settings=ivy-settings.xml --resolver=typesafe resolved-transitive |  deputy resolved-treeprint</p>
-
-<h1>Design and scope</h1>
+<div class="highlight"><pre><span class="nb">echo </span>play:play_2.9.1:2.0.3 | deputy --ivy-settings<span class="o">=</span>ivy-settings.xml --resolver<span class="o">=</span>typesafe deps-resolved | deputy --ivy-settings<span class="o">=</span>ivy-settings.xml --resolver<span class="o">=</span>typesafe resolved-transitive |  deputy resolved-treeprint
+</pre></div>
+</li>
+</ol><h1>Design and scope</h1>
 
 <h2>What does it not do?</h2>
 
@@ -147,29 +159,20 @@ If the last name is of another type, it is a transformation to this type, if not
 <li><p>Handle dependencies in an extremely  stable manner: base your project on links to the jars, links you know work and all surprises are gone. Adding the md5 sums for even more stability also is something that you can do.</p></li>
 </ol><h1>LICENSE</h1>
 
-<p>This code is open source software licensed under the <code>Apache 2.0 License</code>_. Feel free to use it accordingly.</p>
+<p>This code is open source software licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0.html">Apache 2.0 License</a>. Feel free to use it accordingly.</p>
 
 <h1>THANKS</h1>
 
 <p>Dean Thompson for: coming up the name deputy; the way commands look; and the way the tool works :)</p>
 
 <p>Various Typesafe people for hearing me out and the encouragements. </p>
-
-<p>.. _<code>conscript</code>: <a href="https://github.com/n8han/conscript/">https://github.com/n8han/conscript/</a>
-.. _<code>zinc</code>: <a href="https://github.com/typesafehub/zinc/">https://github.com/typesafehub/zinc/</a>
-.. _<code>Apache 2.0 License</code>: <a href="http://www.apache.org/licenses/LICENSE-2.0.html">http://www.apache.org/licenses/LICENSE-2.0.html</a></p>
       </section>
-    </div>
-
-    <!-- FOOTER  -->
-    <div id="footer_wrap" class="outer">
-      <footer class="inner">
-        <p class="copyright">Deputy maintained by <a href="https://github.com/freekh">freekh</a></p>
-        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      <footer>
+        <p>Project maintained by <a href="https://github.com/freekh">freekh</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="http://twitter.com/#!/michigangraham">mattgraham</a></small></p>
       </footer>
     </div>
-
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
     
-
   </body>
 </html>
