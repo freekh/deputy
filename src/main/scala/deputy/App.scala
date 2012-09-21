@@ -89,7 +89,11 @@ COOKBOOK:
     throw new Exception("Catastrophic failure!") //return type
   }
 
-  lazy val actorSystem = ActorSystem("deputy")
+  
+  lazy val actorSystem = {
+    val cl = ActorSystem.getClass.getClassLoader 
+    ActorSystem("deputy", com.typesafe.config.ConfigFactory.load(cl), cl)
+  }
 
   /**
    * Shared by the launched version and the runnable version,
