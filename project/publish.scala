@@ -4,7 +4,7 @@ import sbt.Keys._
 object PublishBuild extends Build {
 
   val repository = file("repository")
-  val deputyProject = RootProject(uri("git://github.com/freekh/deputy.git#" + System.getProperty("deputy.commit")))
+  val deputyProject = RootProject(uri(System.getProperty("deputy.location")))
 
   val root = Project("deputy-shell", file("."), aggregate = Seq(deputyProject)).settings(
       publishTo := None,

@@ -10,15 +10,28 @@ if ! [ -e $SBTLAUNCH ]; then
 fi
 
 #we set the commit here, because I could not figure out how to get sbt to pull the latest
-commit=`curl https://api.github.com/repos/freekh/deputy/commits | grep sha | head -n 2 | tail -n 1 | sed -e 's/.*sha\"\:[ ]*\"\(.*\)\".*/\1/'`
-echo "Using commit: $commit"
+
+if [ -z $DEPUTY_HOME ]; then
+    abs_path=$PWD/`dirname $0`/../deputy
+    pushd $abs_path > /dev/null
+    DEPUTY_HOME=`pwd`
+    popd > /dev/null
+fi
+
+uri=file://$DEPUTY_HOME
+if [ -z $DEPUTY_HOME ]; then
+    echo "Using deputy from here: '$uri' - set absolute path to DEPUTY_HOME to override!"
+else
+    echo "Using deputy from DEPUTY_HOME: '$uri'"
+fi
+
 read -p "Press [Enter] key to continue..."
 
-java -Ddeputy.commit=$commit -Xms512M -Xmx1536M -Xss1M -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=384M -jar $SBTLAUNCH ";project {git://github.com/freekh/deputy.git#$commit}; publish"
+java -Ddeputy.location="$uri" -Xms512M -Xmx1536M -Xss1M -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=384M -jar $SBTLAUNCH ";project {$uri}; publish"
 
 git add $(git ls-files -o --exclude-standard)
 
-git commit -m "$commit"
+git commit -m "auto publishing new version..."
 
 read -p "Press [Enter] key to push changes..."
  
