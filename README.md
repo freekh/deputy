@@ -1,6 +1,6 @@
 # Deputy
 
-Learn more about deputy [here](http://http://freekh.github.com/deputy/) 
+Learn more about deputy [here](http://freekh.github.com/deputy/) 
 
 ## License
 
