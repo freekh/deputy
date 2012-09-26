@@ -1,5 +1,0 @@
-deputydir=`dirname $0`/..
-ivydir=$HOME/.ivy2
-java -cp  $deputydir/target/scala-2.9.1/classes:$HOME/.sbt/boot/scala-2.9.1/lib/scala-library.jar:$ivydir/cache/scala_2.9.1/sbt_0.11.3/com.typesafe.sbteclipse/sbteclipse-plugin/jars/sbteclipse-plugin-2.1.0.jar:$ivydir/cache/scala_2.9.1/sbt_0.11.3/com.typesafe.sbteclipse/sbteclipse-core/jars/sbteclipse-core-2.1.0.jar:$ivydir/cache/org.scalaz/scalaz-core_2.9.1/jars/scalaz-core_2.9.1-6.0.3.jar:$ivydir/cache/ch.qos.logback/logback-classic/jars/logback-classic-1.0.3.jar:$ivydir/cache/ch.qos.logback/logback-core/jars/logback-core-1.0.3.jar:$ivydir/cache/org.slf4j/slf4j-api/jars/slf4j-api-1.6.4.jar:$ivydir/cache/net.databinder.dispatch/core_2.9.1/jars/core_2.9.1-0.9.0.jar:$ivydir/cache/com.ning/async-http-client/jars/async-http-client-1.7.5.jar:$ivydir/cache/io.netty/netty/bundles/netty-3.4.4.Final.jar:$ivydir/cache/com.typesafe.akka/akka-actor/jars/akka-actor-2.0.3.jar:$ivydir/cache/com.typesafe/config/bundles/config-0.3.1.jar:$ivydir/cache/org.apache.ivy/ivy/jars/ivy-2.3.0-rc1.jar:$ivydir/cache/org.scala-sbt/launcher-interface_2.9.1/jars/launcher-interface_2.9.1-0.11.3.jar deputy.Deputy $*
-
-

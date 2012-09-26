@@ -1,0 +1,4 @@
+ch.qos.logback:logback-classic:1.0.3
+net.databinder.dispatch:core_2.9.1:0.9.0
+com.typesafe.akka:akka-actor:2.0.3
+org.apache.ivy:ivy:2.3.0-rc1

@@ -15,13 +15,6 @@ import deputy.models.Result
 import akka.actor.ActorSystem
 import dispatch.Http
 
-/** The launched conscript entry point */
-class App extends xsbti.AppMain {
-  def run(config: xsbti.AppConfiguration) = {
-     Exit(Deputy.run(config.arguments))
-  }
-}
-
 object Deputy {
   val help = """    
                              .
@@ -86,9 +79,10 @@ COOKBOOK:
   val exitOnFail = true
   def fail(s: String) = {
     System.err.println(s)
-    throw new Exception("Catastrophic failure!") //return type
+    throw new Exception("Catastrophic failure!") 
   }
   
+  //this fixes the config issue in conscript
   val actorSystem = ActorSystem("deputy", com.typesafe.config.ConfigFactory.load("akka.conf"), ActorSystem.getClass.getClassLoader)
 
   /**
@@ -112,16 +106,17 @@ COOKBOOK:
       debugMode = true
     }
 
+    def option(name: String) = {
+      args.find(_.startsWith(name+"=")).map { param =>
+      param.split(name+"=")(1)
+      }
+    }
     val availableCommands = List("deps-resolved", "resolved-highest-versions", "resolved-transitive", "resolved-treeprint", "resolved-results", "results-download-file")
     val List(resolveCommand, highestVersionsCommand, explodeCommand, treePrintCommand, resolvedResultsCommand, downloadResultsCommand) = availableCommands
 
-    val ivySettingsPath = args.find(_.startsWith("--ivy-settings=")).flatMap { param =>
-      Some(param.split("--ivy-settings=")(1))
-    }
+    val ivySettingsPath = option("--ivy-settings")
 
-    val resolverName = args.find(_.startsWith("--resolver=")).map { param =>
-      param.split("--resolver=")(1)
-    }
+    val resolverName = option("--resolver")
 
     val quick = args.find(_.startsWith("--quick")).map { _ =>
       true
@@ -131,14 +126,13 @@ COOKBOOK:
       true
     }.getOrElse { false }
 
-    val grepExpr = args.find(_.startsWith("--grep=")).map { param =>
-      val ex = param.split("--grep=")(1)
-      ex -> ex
-    }
-    val grepExludeExpr = args.find(_.startsWith("--grep-v=")).map { param =>
-      val ex = param.split("--grep-v=")(1)
-      "^(?!.*" + ex + ").*$" -> ex
-    }
+
+    
+    val grepExpr = option("--grep").map( expr => expr -> expr)
+    
+    val grepExludeExpr = option("--grep-v").map( expr => "^(?!.*" + expr + ").*$" -> expr ) 
+      
+      
     val grepExprs = (grepExpr.toList ++ grepExludeExpr.toList).map {
       case (trans, orig) =>
         try {
@@ -173,14 +167,18 @@ COOKBOOK:
       ivy
     }
 
+    println(ivySettingsPath)
+
+    
     val res = args.lastOption.map(command => {
       if (args.contains("--version")) {
-        Deputy.out.println(BuildInfo.version)
+        Deputy.out.println(io.Source.fromInputStream(this.getClass.getClassLoader.getResourceAsStream("version")).mkString(""))
+        
         0
-      }else if (args.contains("--help") || args.contains("-h")) {
+      } else if (args.contains("--help") || args.contains("-h")) {
         Deputy.out.println(help)
         0
-      }else if (command == resolveCommand) {
+      } else if (command == resolveCommand) {
         (new ForkJoiner(ivy.getSettings, commandLineLoop(List()), resolverName, quick, grepExprs)).resolveDependencies()
         0
       } else if (command == explodeCommand) {
@@ -201,9 +199,6 @@ COOKBOOK:
         0
       } else if (command == downloadResultsCommand) {
         Results.download(commandLineLoop(List()).map(Result.parse))
-        actorSystem.shutdown()
-        Http.shutdown
-    
         0
       } else {
         System.err.println("Unknown command: " + command + ". Type deputy --help to learn about the commands.")
@@ -213,6 +208,9 @@ COOKBOOK:
       System.err.println("You must specify a command! Type deputy --help to learn about the commands.")
       -1
     }
+    actorSystem.shutdown()
+    Http.shutdown
+    
     res
   }
   /** Standard runnable class entrypoint */
@@ -221,4 +219,3 @@ COOKBOOK:
   }
 }
 
-case class Exit(val code: Int) extends xsbti.Exit
