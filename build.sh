@@ -3,6 +3,7 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 #install deputy if not already installed
+echo "using deputy from:"
 which deputy || { curl http://freekh.github.com/deputy/files/deputy-0.3.0/setup.sh | sh; }
 
 TARGET_DIR=$DIR/target
@@ -36,50 +37,55 @@ fi
 ###ZINC
 
 
-###MAIN LOOP
-#compile files
+###HELPERS
 
-SOURCE_DIR=$DIR/src/
-SCALA_DIR=$DIR/src/main/scala
-
+###DEPS
 DEPS_FILE=$DIR/default.deps
 DEPS_SETTINGS="--ivy-settings=$DIR/typesafe-ivy-settings.xml --resolver=typesafe"
-DEPS_CACHE=$TMP/deps.md5
-DEPS_CACHE_RES1=$TMP/deps.results.1
-DEPS_CACHE_RES2=$TMP/deps.results.2
+DEPS_CACHE_FILES=$TMP/deps.md5
+DEPS_CACHE_RESULTS=$TMP/deps.results
 DEPS_LIB=$DIR/lib
 
 mkdir -p $DEPS_LIB 
 CLASSPATH=`find $DEPS_LIB -name "*.jar" | tr '\n' ':'`
 
-function compile {
-    deps_checksum=`cat $DEPS_FILE | md5`
-    
-    if [ "$deps_checksum" != "`cat $DEPS_CACHE`" ]; then
-        #exec_deputy_results="cat $DEPS_FILE | deputy $DEPS_SETTINGS deps-resolved | deputy $DEPS_SETTINGS --grep=compile --quick resolved-transitive | deputy $DEPS_SETTINGS resolved-highest-versions | deputy $DEPS_SETTINGS resolved-results | grep -v '#javadoc' | grep -v '#source' | grep -v '#pom' | grep -v '#ivy'"
-        #echo "executing: $exec_deputy_results"
-        #deputy_results=`eval $exec_deputy_results`
-        #cat $DEPS_FILE | deputy $DEPS_SETTINGS deps-resolved | deputy $DEPS_SETTINGS --grep=compile --quick resolved-transitive | deputy $DEPS_SETTINGS resolved-highest-versions | deputy $DEPS_SETTINGS resolved-results | grep -v '#javadoc' | grep -v '#source' | grep -v '#pom' | grep -v '#ivy' > $DEPS_CACHE_RES2
-        #TODO: clean old files?
-        #if ! [ -z `grep -v <(cat $DEPS_CACHE_RES2 | sort) <(cat $DEPS_CACHE_RES1 | sort)` ]; then
-        #    exec_deputy="grep -v <(cat $DEPS_CACHE_RES2 | sort) <(cat $DEPS_CACHE_RES1 | sort) | deputy results-download-file"
-        #    pushd $DEPS_LIB
-        #    echo "executing: $exec_deputy"
-        #    eval $exec_deputy
-        #    popd > /dev/null
-        #fi
-        rm -rf $DEPS_LIB
-        mkdir -p $DEPS_LIB > /dev/null
-        pushd $DEPS_LIB > /dev/null
-        cat $DEPS_FILE | deputy $DEPS_SETTINGS deps-resolved | deputy $DEPS_SETTINGS --grep=compile --quick resolved-transitive | deputy $DEPS_SETTINGS resolved-highest-versions | deputy $DEPS_SETTINGS resolved-results | grep -v '#javadoc' | grep -v '#source' | grep -v '#pom' | grep -v '#ivy'  | deputy $DEPS_SETTINGS results-download-file
-        popd > /dev/null
-        CLASSPATH=`ls $DEPS_LIB/*.jar | tr '\n' ':'`
-        #echo $deputy_results > $DEPS_CACHE_RES1
-        echo $deps_checksum > $DEPS_CACHE
-
+function get_deps {
+    if [ -f $DEPS_FILE ]; then
+        deps_checksum=`cat $DEPS_FILE | md5`
     fi
+    if [ -f $DEPS_CACHE_FILES ]; then
+        last_deps_checksum=`cat $DEPS_CACHE_FILES`
+    fi
+    if [ -f $DEPS_FILE ] && [ "$deps_checksum" != "$last_deps_checksum" ]; then
+        echo "resolving..."
+        results=`cat $DEPS_FILE | deputy $DEPS_SETTINGS deps-resolved | deputy $DEPS_SETTINGS --grep=compile --quick resolved-transitive | deputy $DEPS_SETTINGS resolved-highest-versions | deputy $DEPS_SETTINGS resolved-results | grep -v "#pom" | grep -v "#ivy" | grep -v "#source" | grep -v "#javadoc"`
+        if [ -f $DEPS_CACHE_RESULTS ]; then
+            new_results=`diff <(cat $DEPS_CACHE_RESULTS) <(echo "$results") | egrep '^(>)' | tr -d '> '`
+            old_results=`diff <(cat $DEPS_CACHE_RESULTS) <(echo "$results") | egrep '^(<)' | tr -d '< '`
+            old_files=`echo "$old_results" | sed 's#.*/##' | xargs -I {} echo $DEPS_LIB/{}`
+            echo "removing old files..."
+            echo "$old_files" | xargs rm
+        else
+            new_results=$results
+        fi
+        
+        pushd $DEPS_LIB > /dev/null
+        echo "downloading..."
+        echo "$new_results" | deputy $DEPS_SETTINGS results-download-file
+        popd > /dev/null
+        echo "done!"
+        
+        CLASSPATH=`ls $DEPS_LIB/*.jar | tr '\n' ':'`
+        echo $deps_checksum > $DEPS_CACHE_FILES
+        echo "$results" > $DEPS_CACHE_RESULTS
+    fi
+}
 
-    #compile sources
+###COMPILE
+SOURCE_DIR=$DIR/src/
+SCALA_DIR=$DIR/src/main/scala
+
+function compile {
     src_files=`find $SCALA_DIR -name "*.scala"`
     src_checksums=`echo $src_files | xargs md5`
     src_checksum=`echo $src_checksums | md5`
@@ -89,27 +95,29 @@ function compile {
     fi
 }
 
-
+###MAIN LOOP
 if ! [ -z $(echo "$*" | grep "\-c") ]; then
-    ###NAILGUN
+    ###NAILGUN: make compiler faster
     control_c()
     {
         echo -ne "\nshutting down nailgun server..."
-        $ZINC -shutdown
+        $ZINC -shutdown -nailed
         exit $?
     }
  
     # trap keyboard interrupt (control-c)
     trap control_c SIGINT
 
-    $ZINC -start #start nailgun
+    $ZINC -start -nailed #start nailgun
     ###NAILGUN
 
     while true; do
+        get_deps
         compile
         sleep 1
     done
     
-else 
+else
+    get_deps
     compile
 fi
