@@ -21,7 +21,6 @@ class DependencyResolver(settings: IvySettings, quick: Boolean, grepExprs: List[
   def getRepositoryResolvers(resolvers: List[_]): List[RepositoryResolver] = {
     import scala.collection.JavaConversions._
     resolvers flatMap { //TODO: @tailrec
-
       case r: RepositoryResolver => List(r)
       case r: ChainResolver => getRepositoryResolvers(r.getResolvers.toList)
       //TODO: error msg handling case _ => throw UnsupportedResolver(ivy)  
@@ -143,7 +142,7 @@ class DependencyResolver(settings: IvySettings, quick: Boolean, grepExprs: List[
     }
     resolvedDeps.flatten
   } catch {
-    case e => {
+    case e: Exception => {
       Deputy.debug("Got exception : " + e + " while processing " + dep)
       Seq.empty
     }

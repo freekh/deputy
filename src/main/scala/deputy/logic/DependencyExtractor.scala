@@ -76,7 +76,7 @@ class DependencyExtractor(settings: IvySettings, quick: Boolean, grepExprs: List
       }
     }
   } catch {
-    case e => {
+    case e: Exception => {
       Deputy.debug("Got exception : " + e + " while converting " + deps)
       Seq.empty
     }
@@ -99,7 +99,7 @@ class DependencyExtractor(settings: IvySettings, quick: Boolean, grepExprs: List
       }
     }
   } catch {
-    case e => {
+    case e: Exception => {
       Deputy.debug("Got exception : " + e + " while processing " + parent)
       Seq.empty
     }
