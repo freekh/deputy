@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 VERSION=0.3.1
 
-DEPUTY_HTTP_FILES=http://freekh.github.com/deputy/files
+DEPUTY_HTTP_FILES=http://freekh.github.io/deputy/files
 DEPUTY_HOME=$HOME/.deputy
 
 DEPUTY_NAME=deputy-$VERSION
