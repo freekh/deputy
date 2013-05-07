@@ -22,9 +22,7 @@ class ForkJoiner(settings: IvySettings, lines: Seq[String], resolverName: Option
   def resolveDependencies() = {
     val resolver = new DependencyResolver(settings, quick, grepExpr)
     lines.par.foreach { l => //NOTICE the par 
-      resolver.resolveDependency(Dependency.parse(l), List.empty, None, resolverName).foreach { rd =>
-        printer ! rd
-      }
+      resolver.resolveDependency(Dependency.parse(l), List.empty, None, resolverName)
     }
   }
 
@@ -43,7 +41,7 @@ class ForkJoiner(settings: IvySettings, lines: Seq[String], resolverName: Option
 
           extractor.convertToResolvedDep(deps, excludeRules, resolverName, rd)
       }
-    }
+    }.flatten
     val foundRds = foundRdsAndExcludes.map(_._1).distinct //TODO: i am not sure we need this?
 
     val newRds = foundRds.filter(rd => !alreadyResolved.contains(rd.path))

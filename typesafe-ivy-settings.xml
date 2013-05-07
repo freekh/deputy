@@ -1,6 +1,7 @@
 <ivysettings>
-    <settings defaultResolver="typesafe"/>
+    <settings defaultResolver="maven2"/>
     <resolvers>
         <ibiblio name="typesafe" m2compatible="true" root="http://repo.typesafe.com/typesafe/releases/"/>
+        <ibiblio name="maven2" m2compatible="true" root="http://repo1.maven.org/maven2/"/>
     </resolvers>
 </ivysettings>

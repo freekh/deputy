@@ -13,7 +13,7 @@ object Dependency {
 }
 
 //TODO: This should be called dependency
-case class Dependency(moduleOrg: String, moduleName: String, revision: String) {
+case class Dependency(moduleOrg: String, moduleName: String, revision: String) { //TODO: extends Formatable {
   import Dependency._
   def format = moduleOrg + ivyCoordSep + moduleName + ivyCoordSep + revision
 }

@@ -23,7 +23,7 @@ object ResolvedDep {
   }
 }
 
-case class ResolvedDep(dep: Dependency, moduleType: String, resolverName: String, scopes: List[String], path: String, resolvedFromArtifact: Option[String]) {
+case class ResolvedDep(dep: Dependency, moduleType: String, resolverName: String, scopes: List[String], path: String, resolvedFromArtifact: Option[String])  {
   import ResolvedDep._
   def format = {
     val depStr = dep.format

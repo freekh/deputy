@@ -8,4 +8,7 @@ object expectedExceptions {
   case class LineParseException(line: String, expr: String) extends ExpectedException("Line: " + line + " cannot be parsed by reg exp: " + expr)
 
   case class IntParseException(line: String, wrongInt: String) extends ExpectedException("While parsing: " + line + " expected this: " + wrongInt + " to be a parsable integer which it is not")
+
+  class ArgsParseException(m : String) extends ExpectedException("Could not parse arguments: " + m)
+
 }

@@ -143,7 +143,7 @@ class DependencyResolver(settings: IvySettings, quick: Boolean, grepExprs: List[
     resolvedDeps.flatten
   } catch {
     case e: Exception => {
-      Deputy.debug("Got exception : " + e + " while processing " + dep)
+      e.printStackTrace()
       Seq.empty
     }
   }

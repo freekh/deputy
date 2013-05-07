@@ -41,6 +41,7 @@ EXAMPLE:
 COMMANDS:
   deps-resolved              transform from deps (format: org:name:version) to resolved (format: 
                              <org:name:version>|<type>|<resolver>|<conf>|<path>|<resolved-from>|)
+                             
 
   resolved-transitive        transitively find dependencies
   resolved-highest-versions  remove dependencies where there exists a higher version        
@@ -50,7 +51,9 @@ COMMANDS:
                              to results (format:<org:name:version>#<type>=<uri>,<uri>,...)
   
   results-download-file      download results and print filename 
-    
+  help                       TODO: print help for a command
+
+
 OPTIONS:
   --quick                    skip lower versioned dependencies that ivy also would skip when resolving
   --resolver=<RESOLVERNAME>  use only the resolver RESOLVERNAME 
@@ -85,6 +88,9 @@ COOKBOOK:
   //this fixes the config issue in conscript
   val actorSystem = ActorSystem("deputy", com.typesafe.config.ConfigFactory.load("akka.conf"), ActorSystem.getClass.getClassLoader)
 
+
+  
+
   /**
    * Shared by the launched version and the runnable version,
    * returns the process status code
@@ -100,7 +106,6 @@ COOKBOOK:
     }
 
     //TODO: FIX ENTIRE COMMAND LINE OPTION PARSING - THIS SUCKS
-
 
     if (args.contains("--debug")) {
       debugMode = true
@@ -166,8 +171,6 @@ COOKBOOK:
       }
       ivy
     }
-
-    println(ivySettingsPath)
 
     
     val res = args.lastOption.map(command => {

@@ -49,6 +49,11 @@ class DependencyExtractor(settings: IvySettings, quick: Boolean, grepExprs: List
       }
     }
   }
+  
+  def reduce[A, B](s: Seq[Either[A, B]]): Either[A, Seq[B]] =
+    s.foldLeft(Right(Nil): Either[A, List[B]]) {
+      (acc, e) => for (xs <- acc.right; x <- e.right) yield x :: xs
+    }.right.map(_.reverse)
 
   def convertToResolvedDep(deps: Seq[DependencyDescriptor], excludeRules: Seq[(String, Option[String])], resolverName: Option[String], parent: ResolvedDep) = try {
     val filteredDeps = deps.filter { depDescr =>
@@ -56,7 +61,8 @@ class DependencyExtractor(settings: IvySettings, quick: Boolean, grepExprs: List
       !excludeRules.contains(depRevId.getOrganisation -> Option(depRevId.getName))
     }
 
-    filteredDeps.flatMap { depDescr =>
+    
+    filteredDeps.map { depDescr =>
       val depRevId = depDescr.getDependencyRevisionId
       val dep = Dependency(depRevId.getOrganisation, depRevId.getName, depRevId.getRevision)
       val conf = depDescr.getModuleConfigurations()
@@ -67,9 +73,11 @@ class DependencyExtractor(settings: IvySettings, quick: Boolean, grepExprs: List
         val scopes = conf.toList.map(_.toString)
 
         val resolvedDep = resolver.resolveDependency(dep, scopes, Some(parent.path), resolverName.map(r => Some(r)).getOrElse(Some(parent.resolverName)))
-        resolvedDep.map { rd =>
+        
+        val a = resolvedDep.map { rd =>
           rd -> excludeRules.toSeq
         }
+        a
       } else {
         Deputy.debug("Skipping: " + dep + ". Module config is: " + conf.map(_.toString).toList)
         Seq.empty
@@ -78,6 +86,7 @@ class DependencyExtractor(settings: IvySettings, quick: Boolean, grepExprs: List
   } catch {
     case e: Exception => {
       Deputy.debug("Got exception : " + e + " while converting " + deps)
+      e.printStackTrace()
       Seq.empty
     }
   }
